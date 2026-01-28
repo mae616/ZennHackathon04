@@ -1,0 +1,17 @@
+{
+  "name": "zenn-hackathon04",
+  "private": true,
+  "version": "0.0.1",
+  "description": "LLM対話から「重要なやり取り」を選び、思考を再開するAIエージェント",
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4"
+}
