@@ -79,6 +79,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className="flex items-center gap-3 rounded px-4 py-3 transition-colors"
               style={{
                 backgroundColor: active ? 'var(--bg-surface)' : 'transparent',

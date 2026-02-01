@@ -47,13 +47,14 @@ export function Header({ title, subtitle, showSearch = false }: HeaderProps) {
       {showSearch && (
         <button
           type="button"
+          aria-label="対話を検索"
           className="flex items-center gap-2 rounded border px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
           style={{
             borderColor: 'var(--border)',
             color: 'var(--gray-700)',
           }}
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-4 w-4" aria-hidden="true" />
           検索
         </button>
       )}

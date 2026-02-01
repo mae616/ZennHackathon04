@@ -10,8 +10,11 @@ import type {
   ApiFailure,
 } from '@zenn-hackathon04/shared';
 
-/** APIのベースURL（Server Components用） */
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+/**
+ * APIのベースURL（Server Components専用）
+ * NOTE: サーバーサイドでのみ使用するため、NEXT_PUBLIC_ではなくAPI_URLを使用
+ */
+const API_BASE_URL = process.env.API_URL || 'http://localhost:3000';
 
 /**
  * 対話一覧を取得する

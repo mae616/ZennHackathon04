@@ -26,10 +26,10 @@ export default async function HomePage() {
     } else {
       error = response.error.message;
     }
-  } catch (e) {
+  } catch {
     // Firebaseが未設定の場合などは空配列で表示
-    console.error('Failed to fetch conversations:', e);
-    error = null; // 初期状態は空一覧を表示
+    // エラー詳細はサーバーログで確認可能なため、ここではユーザーに空一覧を表示
+    error = null;
   }
 
   return (

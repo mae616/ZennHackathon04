@@ -36,7 +36,7 @@ function formatDate(dateString: string): string {
  * @param conversation - 対話データ
  */
 export function ConversationCard({ conversation }: ConversationCardProps) {
-  // 洞察数（将来的にはconversation.insightsから取得）
+  // TODO: Sprint 2で洞察機能実装後、conversation.insights.lengthから取得する
   const insightCount = 0;
 
   return (
