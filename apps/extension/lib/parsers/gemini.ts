@@ -15,7 +15,7 @@ import type { ParseResult } from './index';
  * DOM構造変更時はここを更新する
  *
  * @remarks
- * 2024年時点のGemini UIを基準としたセレクタ
+ * 2026年時点のGemini UIを基準としたセレクタ
  * Googleは頻繁にUI更新を行うため、動作しなくなった場合は
  * 実際のDOMを調査して更新する必要がある
  */
@@ -61,7 +61,7 @@ function generateId(): string {
 function extractTextContent(element: Element | null): string | null {
   if (!element) return null;
 
-  // innerTextを優先（CSSで非表示のものを除外）
+  // textContentを使用（全テキストを取得）
   const text = element.textContent || '';
 
   // 連続する空白を単一スペースに正規化

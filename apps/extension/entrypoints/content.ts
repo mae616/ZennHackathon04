@@ -34,7 +34,7 @@ interface CaptureResponse {
  * メッセージがキャプチャリクエストかどうかを判定する型ガード
  *
  * @param message - 受信したメッセージ
- * @returns CAPTUREs_CONVERSATIONメッセージならtrue
+ * @returns CAPTURE_CONVERSATIONメッセージならtrue
  */
 function isCaptureMessage(message: unknown): message is CaptureMessage {
   return (
