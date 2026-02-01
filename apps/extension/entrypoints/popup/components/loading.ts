@@ -5,6 +5,8 @@
  * オーバーレイ形式で表示し、処理中であることをユーザーに伝える。
  */
 
+import { escapeHtml } from '../utils/escape';
+
 /**
  * ローディングオーバーレイを作成する
  *
@@ -66,16 +68,4 @@ export function updateLoadingMessage(message: string): void {
       textElement.textContent = message;
     }
   }
-}
-
-/**
- * HTMLエスケープ処理
- *
- * @param text - エスケープする文字列
- * @returns エスケープされた文字列
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }

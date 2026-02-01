@@ -8,6 +8,7 @@
 
 import type { Message, SourcePlatform, SaveConversationRequest } from '@zenn-hackathon04/shared';
 import { TagManager } from './tags';
+import { escapeHtml } from '../utils/escape';
 
 /**
  * フォームに表示する対話データの型
@@ -203,16 +204,4 @@ export class FormManager {
       this.tagManager = new TagManager(tagContainer, this.data.tags);
     }
   }
-}
-
-/**
- * HTMLエスケープ処理
- *
- * @param text - エスケープする文字列
- * @returns エスケープされた文字列
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }

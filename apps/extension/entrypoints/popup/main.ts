@@ -14,6 +14,7 @@
 import './style.css';
 import { FormManager, type ConversationFormData } from './components/form';
 import { showLoading, hideLoading, updateLoadingMessage } from './components/loading';
+import { escapeHtml } from './utils/escape';
 import type { Message, SourcePlatform, SaveConversationRequest } from '@zenn-hackathon04/shared';
 
 /** APIエンドポイントのベースURL（環境変数から取得、デフォルトはローカル開発用） */
@@ -33,25 +34,6 @@ interface CaptureResponse {
   };
   error?: string;
 }
-
-/**
- * ポップアップアプリケーションの状態
- */
-interface PopupState {
-  /** ローディング中かどうか */
-  isLoading: boolean;
-  /** エラーメッセージ（エラー時のみ） */
-  error: string | null;
-  /** 対話データ（取得成功時） */
-  conversationData: ConversationFormData | null;
-}
-
-/** アプリケーション状態 */
-let state: PopupState = {
-  isLoading: true,
-  error: null,
-  conversationData: null,
-};
 
 /** フォームマネージャー */
 let formManager: FormManager | null = null;
@@ -393,18 +375,6 @@ async function init(): Promise<void> {
       true
     );
   }
-}
-
-/**
- * HTMLエスケープ処理
- *
- * @param text - エスケープする文字列
- * @returns エスケープされた文字列
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // アプリケーションを起動
