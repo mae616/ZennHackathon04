@@ -691,10 +691,10 @@
                       "id": "CPqO3",
                       "name": "pageSubtitle",
                       "fill": "$--gray-700",
-                      "content": "保存した対話を管理・再開できます",
+                      "content": "LLMとの対話を、資産に変える",
                       "fontFamily": "Inter",
                       "fontSize": 14,
-                      "fontWeight": "normal"
+                      "fontWeight": "500"
                     }
                   ]
                 },
@@ -929,6 +929,40 @@
                       "children": [
                         {
                           "type": "frame",
+                          "id": "GrWUs",
+                          "name": "insightBadge",
+                          "fill": "$--red-primary",
+                          "gap": 4,
+                          "padding": [
+                            4,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "uxgj5",
+                              "name": "insightBadgeIcon",
+                              "width": 12,
+                              "height": 12,
+                              "iconFontName": "lightbulb",
+                              "iconFontFamily": "lucide",
+                              "fill": "#FFFFFF"
+                            },
+                            {
+                              "type": "text",
+                              "id": "6MIZJ",
+                              "name": "insightBadgeText",
+                              "fill": "#FFFFFF",
+                              "content": "2つの洞察",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
                           "id": "aiwz8",
                           "name": "card1Tag1",
                           "fill": "$--bg-surface",
@@ -1158,6 +1192,40 @@
                       "name": "card2Tags",
                       "gap": 8,
                       "children": [
+                        {
+                          "type": "frame",
+                          "id": "dgM0m",
+                          "name": "insightBadge2",
+                          "fill": "$--red-primary",
+                          "gap": 4,
+                          "padding": [
+                            4,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "dfvEe",
+                              "name": "insightBadge2Icon",
+                              "width": 12,
+                              "height": 12,
+                              "iconFontName": "lightbulb",
+                              "iconFontFamily": "lucide",
+                              "fill": "#FFFFFF"
+                            },
+                            {
+                              "type": "text",
+                              "id": "6BSyO",
+                              "name": "insightBadge2Text",
+                              "fill": "#FFFFFF",
+                              "content": "5つの洞察",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
                         {
                           "type": "frame",
                           "id": "aX27p",
