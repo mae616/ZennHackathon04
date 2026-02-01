@@ -4,22 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-**ZennHackathon04 - 思考再開AIエージェント**
+**ZennHackathon04 - 思考再開AIエージェント「ThinkResume」**
 
 LLM対話（ChatGPT/Claude/Gemini）から「重要なやり取り」をキャプチャし、後から思考を再開できるAIエージェント。
+
+**キャッチコピー**: 「LLMとの対話を、資産に変える」
 
 ## 技術スタック
 
 | 領域 | 技術 |
 |------|------|
 | モノレポ | pnpm workspaces |
-| Web | Next.js 15 App Router + React 19 |
-| 拡張機能 | WXT (Manifest V3) |
-| 共通型定義 | Zod |
+| Web | Next.js 16 App Router + React 19 |
+| 拡張機能 | WXT 0.20+ (Manifest V3) |
+| 共通型定義 | Zod 3.24+ |
 | スタイル | Tailwind CSS v4 |
 | AI | Vertex AI (Gemini) |
 | DB | Firestore |
-| ランタイム | Node.js 20+ |
+| ランタイム | Node.js 20+, pnpm 9+ |
 
 ## 開発コマンド
 
@@ -65,14 +67,38 @@ packages/
 
 ## 共通スキーマ（@zenn-hackathon04/shared）
 
-- `ConversationSchema`: 対話セッション（title, source, messages[], tags, note）
-- `MessageSchema`: メッセージ（role: user/assistant/system, content）
-- `ApiSuccessSchema<T>` / `ApiErrorSchema`: API レスポンス型
+**packages/shared/src/types/** に定義：
+
+### conversation.ts
+- `MessageRoleSchema`: `'user' | 'assistant' | 'system'`
+- `MessageSchema`: id, role, content, timestamp
+- `SourcePlatformSchema`: `'chatgpt' | 'claude' | 'gemini'`
+- `ConversationStatusSchema`: `'active' | 'archived' | 'deleted'`
+- `ConversationSchema`: id, title, source, messages[], status, tags, createdAt, updatedAt, note
+
+### api.ts
+- `ApiErrorSchema`: code, message, details
+- `ApiSuccessSchema<T>` / `ApiFailureSchema`: APIレスポンス共通型
+- `SaveConversationRequestSchema` / `ResponseSchema`: 保存API
+- `ListConversationsResponseSchema`: 一覧API（conversations[], nextCursor?）
 
 インポート例:
 ```typescript
-import { ConversationSchema, type Conversation } from '@zenn-hackathon04/shared';
+import { ConversationSchema, type Conversation, type SourcePlatform } from '@zenn-hackathon04/shared';
 ```
+
+## API Routes（Next.js App Router）
+
+| エンドポイント | メソッド | 用途 |
+|---------------|---------|------|
+| `/api/conversations` | POST | 対話保存 |
+| `/api/conversations` | GET | 対話一覧 |
+| `/api/conversations/:id` | GET | 対話詳細 |
+
+## Firestore スキーマ
+
+- **Collection**: `conversations`
+- **Document**: ConversationSchema に準拠
 
 ## Gitブランチ運用
 
@@ -87,13 +113,29 @@ import { ConversationSchema, type Conversation } from '@zenn-hackathon04/shared'
 ## パスエイリアス
 
 - **Web**: `@/*` → `./src/*`
-- **Extension**: WXT自動生成（`.wxt/tsconfig.json`）
+- **Extension**: WXT自動生成（`@`, `~`, `@@`, `~~` → ルート）
+
+## 対話キャプチャ（Chrome拡張）
+
+| プラットフォーム | マッチパターン | 状態 |
+|-----------------|---------------|------|
+| Gemini | `*://*.google.com/*` | 実装済み |
+| ChatGPT | `*://chat.openai.com/*` | 計画中 |
+| Claude | `*://claude.ai/*` | 計画中 |
+
+## デザイン・スタイル
+
+- **フレームワーク**: Tailwind CSS v4
+- **カラー**: 赤（$--red-primary）をアクセントカラー
+- **トーン**: ライトモード基調、シンプル・ミニマル
+- **デザインファイル**: `doc/input/design/thinkresume.pen`
 
 ## プロジェクト固有の制約
 
 - **対話ソース**: ChatGPT / Claude / Gemini のDOM構造に依存（変更時は要追従）
 - **表示環境**: デスクトップ 1440x900、拡張機能ポップアップ 400x600
 - **非目標**: マルチユーザー対応、Firefox拡張、モバイルアプリ
+- **環境変数**: `.env.local` でAPI Key管理（.gitignore対象）
 
 ## 参照優先順位（SSOT）
 
