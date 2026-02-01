@@ -25,10 +25,21 @@ import { getDb } from '@/lib/firebase/admin';
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<SaveConversationResponse | ApiFailure>> {
+  // リクエストボディをパース
+  let body: unknown;
   try {
-    // リクエストボディをパース
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    const error: ApiError = {
+      code: 'INVALID_JSON',
+      message: '不正なJSON形式です',
+    };
+    return NextResponse.json({ success: false, error } as ApiFailure, {
+      status: 400,
+    });
+  }
 
+  try {
     // Zodバリデーション
     const parseResult = SaveConversationRequestSchema.safeParse(body);
     if (!parseResult.success) {

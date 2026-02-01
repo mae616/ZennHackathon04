@@ -7,9 +7,6 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
-/** Firebase Admin アプリのシングルトンインスタンス */
-let app: App | undefined;
-
 /**
  * Firebase Admin SDKを初期化する
  *
@@ -38,8 +35,8 @@ function initFirebaseAdmin(): App {
     );
   }
 
-  // 新規アプリを初期化
-  app = initializeApp({
+  // 新規アプリを初期化して返す
+  return initializeApp({
     credential: cert({
       projectId,
       clientEmail,
@@ -47,8 +44,6 @@ function initFirebaseAdmin(): App {
       privateKey: privateKey.replace(/\\n/g, '\n'),
     }),
   });
-
-  return app;
 }
 
 /**
