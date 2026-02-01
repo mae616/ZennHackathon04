@@ -586,7 +586,7 @@
                       "name": "navIcon2",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "search",
+                      "iconFontName": "layout-grid",
                       "iconFontFamily": "lucide",
                       "fill": "$--gray-700"
                     },
@@ -595,7 +595,7 @@
                       "id": "5IWsV",
                       "name": "navLabel2",
                       "fill": "$--gray-700",
-                      "content": "検索",
+                      "content": "スペース",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "normal"
@@ -1292,6 +1292,7 @@
                   "id": "jktei",
                   "name": "nav2Item1",
                   "width": "fill_container",
+                  "fill": "$--bg-surface",
                   "gap": 12,
                   "padding": [
                     12,
@@ -1303,7 +1304,7 @@
                       "type": "rectangle",
                       "id": "L9lK5",
                       "name": "nav2Dot1",
-                      "fill": "transparent",
+                      "fill": "$--red-primary",
                       "width": 6,
                       "height": 6
                     },
@@ -1315,14 +1316,98 @@
                       "height": 18,
                       "iconFontName": "message-square",
                       "iconFontFamily": "lucide",
-                      "fill": "$--gray-700"
+                      "fill": "$--black-primary"
                     },
                     {
                       "type": "text",
                       "id": "fwcFW",
                       "name": "nav2Label1",
-                      "fill": "$--gray-700",
+                      "fill": "$--black-primary",
                       "content": "対話一覧",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "9htMQ",
+                  "name": "nav2Item2",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "Z5HDG",
+                      "name": "nav2Dot2",
+                      "fill": "transparent",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "ckcl1",
+                      "name": "nav2Icon2",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "layout-grid",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--gray-700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "kgJYa",
+                      "name": "nav2Label2",
+                      "fill": "$--gray-700",
+                      "content": "スペース",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iAiXu",
+                  "name": "nav2Item3",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "HYlK9",
+                      "name": "nav2Dot3",
+                      "fill": "transparent",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "onmGT",
+                      "name": "nav2Icon3",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "settings",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--gray-700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Q69VI",
+                      "name": "nav2Label3",
+                      "fill": "$--gray-700",
+                      "content": "設定",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "normal"
@@ -2092,6 +2177,132 @@
                       "children": [
                         {
                           "type": "frame",
+                          "id": "KtVnq",
+                          "name": "geminiInitMsg",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Z1pRz",
+                              "name": "geminiInitAvatar",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$--red-primary",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "72hMf",
+                                  "name": "geminiInitAvatarIcon",
+                                  "width": 16,
+                                  "height": 16,
+                                  "iconFontName": "sparkles",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "#FFFFFF"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "kA3T0",
+                              "name": "geminiInitMsgContent",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "reaUW",
+                                  "name": "geminiInitMsgRole",
+                                  "fill": "$--gray-700",
+                                  "content": "Gemini",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "wjBLY",
+                                  "name": "geminiInitMsgText",
+                                  "fill": "$--black-primary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "前回の議論を踏まえて、続きをお手伝いします。何か質問や深掘りしたいポイントはありますか？",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vXd8I",
+                          "name": "userMsg",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "pqkb3",
+                              "name": "userAvatar",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "#000000",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "FAuyp",
+                                  "name": "userAvatarIcon",
+                                  "width": 16,
+                                  "height": 16,
+                                  "iconFontName": "user",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "$--gray-700"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "5sZCx",
+                              "name": "userMsgContent",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Hzr90",
+                                  "name": "userMsgRole",
+                                  "fill": "$--gray-700",
+                                  "content": "あなた",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "cUfw1",
+                                  "name": "userMsgText",
+                                  "fill": "$--black-primary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "useCallbackとuseMemoの使い分けがよくわかりません。具体的にどういう場面で使うべきですか？",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
                           "id": "vhgLM",
                           "name": "geminiMsg",
                           "width": "fill_container",
@@ -2144,7 +2355,7 @@
                                   "fill": "$--black-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "前回の議論を踏まえて、useCallbackとuseMemoの具体的な使い分けについて深掘りしましょう。何か具体的なコード例はありますか？",
+                                  "content": "useCallbackは関数のメモ化、useMemoは計算結果のメモ化に使います。\n\n・useCallback: 子コンポーネントに渡すコールバック関数が毎回再生成されるのを防ぐ\n・useMemo: 重い計算処理の結果をキャッシュする\n\n具体的には、useCallbackは「関数そのもの」を、useMemoは「関数の戻り値」をメモ化する点が異なります。",
                                   "fontFamily": "Inter",
                                   "fontSize": 14,
                                   "fontWeight": "normal"
@@ -2939,6 +3150,48 @@
                       "fontWeight": "500"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "4y0lw",
+                  "name": "nav4Item3",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "vVgdC",
+                      "name": "nav4Dot3",
+                      "fill": "transparent",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "zx5VH",
+                      "name": "nav4Icon3",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "settings",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--gray-700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "EMeuv",
+                      "name": "nav4Label3",
+                      "fill": "$--gray-700",
+                      "content": "設定",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             }
@@ -3699,11 +3952,137 @@
                                   "fontFamily": "Inter",
                                   "fontSize": 14,
                                   "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "2CXmF",
+                          "name": "userMsg4",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "ED9Jz",
+                              "name": "userAvatar4",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "#000000",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "ZhZfi",
+                                  "name": "userAvatarIcon4",
+                                  "width": 16,
+                                  "height": 16,
+                                  "iconFontName": "user",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "$--gray-700"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "f5vxn",
+                              "name": "userMsgContent4",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "ji9j7",
+                                  "name": "userMsgRole4",
+                                  "fill": "$--gray-700",
+                                  "content": "あなた",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "GILFX",
+                                  "name": "userMsgText4",
+                                  "fill": "$--black-primary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "2つの対話で共通して出てきた「パフォーマンス最適化」について、TypeScriptの型を活用した方法を教えてください。",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "gwzDK",
+                          "name": "geminiReply4",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "tcXZe",
+                              "name": "geminiReplyAvatar4",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$--red-primary",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "ziytY",
+                                  "name": "geminiReplyAvatarIcon4",
+                                  "width": 16,
+                                  "height": 16,
+                                  "iconFontName": "sparkles",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "#FFFFFF"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "HRmeV",
+                              "name": "geminiReplyMsgContent4",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "3T4Ny",
+                                  "name": "geminiReplyMsgRole4",
+                                  "fill": "$--gray-700",
+                                  "content": "Gemini",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "BQsMS",
+                                  "name": "geminiReplyMsgText4",
+                                  "fill": "$--black-primary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "TypeScriptの型システムを活用したパフォーマンス最適化には、以下のアプローチがあります：\n\n1. ジェネリクスで型安全なメモ化関数を作成\n2. const assertionで不変データを明示\n3. Discriminated Unionでランタイムチェックを削減\n\nこれにより、型安全性を保ちながら最適化できます。",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "0o9oH",
-                                  "name": "saveInsightBtn4",
+                                  "id": "Sl6qk",
+                                  "name": "saveInsightBtn4New",
                                   "stroke": {
                                     "align": "inside",
                                     "thickness": 1,
@@ -3718,8 +4097,8 @@
                                   "children": [
                                     {
                                       "type": "icon_font",
-                                      "id": "UnxbJ",
-                                      "name": "saveInsightIcon4",
+                                      "id": "U7vKP",
+                                      "name": "saveInsightIcon4New",
                                       "width": 12,
                                       "height": 12,
                                       "iconFontName": "plus",
@@ -3728,8 +4107,8 @@
                                     },
                                     {
                                       "type": "text",
-                                      "id": "LqgJ2",
-                                      "name": "saveInsightText4",
+                                      "id": "YaveG",
+                                      "name": "saveInsightText4New",
                                       "fill": "$--red-primary",
                                       "content": "洞察として保存",
                                       "fontFamily": "Inter",
