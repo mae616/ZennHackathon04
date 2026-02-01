@@ -21,6 +21,7 @@ import {
   type Conversation,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
+import { createServerErrorResponse } from '@/lib/api/errors';
 
 /** 1ページあたりの取得件数 */
 const PAGE_SIZE = 20;
@@ -86,24 +87,7 @@ export async function POST(
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    // エラーログ出力（本番ではCloud Loggingに送信される想定）
-    console.error('POST /api/conversations error:', error);
-
-    // Firebase未初期化エラーの判定
-    const isFirebaseError =
-      error instanceof Error &&
-      error.message.includes('Firebase Admin SDK の初期化');
-
-    const apiError: ApiError = {
-      code: isFirebaseError ? 'FIREBASE_NOT_CONFIGURED' : 'INTERNAL_ERROR',
-      message: isFirebaseError
-        ? 'Firebaseの設定が完了していません'
-        : 'サーバーエラーが発生しました',
-    };
-
-    return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
-      status: 500,
-    });
+    return createServerErrorResponse(error, 'POST /api/conversations');
   }
 }
 
@@ -143,6 +127,8 @@ export async function GET(
     const conversationDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
 
     // ドキュメントをConversation型に変換
+    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
+    // 将来的にはConversationSchema.parseで再検証することで堅牢性を向上できる
     const conversations: Conversation[] = conversationDocs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -163,22 +149,6 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('GET /api/conversations error:', error);
-
-    // Firebase未初期化エラーの判定
-    const isFirebaseError =
-      error instanceof Error &&
-      error.message.includes('Firebase Admin SDK の初期化');
-
-    const apiError: ApiError = {
-      code: isFirebaseError ? 'FIREBASE_NOT_CONFIGURED' : 'INTERNAL_ERROR',
-      message: isFirebaseError
-        ? 'Firebaseの設定が完了していません'
-        : 'サーバーエラーが発生しました',
-    };
-
-    return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
-      status: 500,
-    });
+    return createServerErrorResponse(error, 'GET /api/conversations');
   }
 }

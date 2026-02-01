@@ -13,6 +13,7 @@ import {
   type Conversation,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
+import { createServerErrorResponse } from '@/lib/api/errors';
 
 /** ルートパラメータの型定義 */
 type RouteParams = {
@@ -50,6 +51,7 @@ export async function GET(
     }
 
     // Conversation型に変換して返す
+    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
     const conversation: Conversation = {
       id: doc.id,
       ...doc.data(),
@@ -62,22 +64,6 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('GET /api/conversations/:id error:', error);
-
-    // Firebase未初期化エラーの判定
-    const isFirebaseError =
-      error instanceof Error &&
-      error.message.includes('Firebase Admin SDK の初期化');
-
-    const apiError: ApiError = {
-      code: isFirebaseError ? 'FIREBASE_NOT_CONFIGURED' : 'INTERNAL_ERROR',
-      message: isFirebaseError
-        ? 'Firebaseの設定が完了していません'
-        : 'サーバーエラーが発生しました',
-    };
-
-    return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
-      status: 500,
-    });
+    return createServerErrorResponse(error, 'GET /api/conversations/:id');
   }
 }
