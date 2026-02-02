@@ -8,26 +8,10 @@ import Link from 'next/link';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { SourceBadge } from './SourceBadge';
 import { ArrowRight, Lightbulb } from 'lucide-react';
+import { formatDate } from '@/lib/utils/date';
 
 interface ConversationCardProps {
   conversation: Conversation;
-}
-
-/**
- * 日時を表示用にフォーマットする
- *
- * @param dateString - ISO 8601形式の日時文字列
- * @returns フォーマット済み日時（例: 2024/01/15 14:30）
- */
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /**

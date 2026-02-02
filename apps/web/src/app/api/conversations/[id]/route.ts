@@ -3,6 +3,7 @@
  *
  * GET /api/conversations/:id
  * - 指定されたIDの対話を取得する
+ * - IDフォーマット検証を行う
  * - 存在しない場合は404エラーを返す
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,6 +22,33 @@ type RouteParams = {
 };
 
 /**
+ * Firestore Document IDのフォーマットを検証する
+ * - 空文字でない
+ * - 1〜1500バイト以内
+ * - スラッシュ（/）を含まない
+ * - 単一のピリオド（.）またはダブルピリオド（..）でない
+ * - __.*__の形式でない（予約済み）
+ *
+ * @param id - 検証対象のID
+ * @returns 有効なIDの場合true
+ */
+function isValidDocumentId(id: string): boolean {
+  if (!id || id.length === 0 || id.length > 1500) {
+    return false;
+  }
+  if (id.includes('/')) {
+    return false;
+  }
+  if (id === '.' || id === '..') {
+    return false;
+  }
+  if (/^__.*__$/.test(id)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * 指定IDの対話を取得する
  *
  * @param _request - GETリクエスト（未使用だがNext.js API規約で必要）
@@ -34,6 +62,17 @@ export async function GET(
 ): Promise<NextResponse<GetConversationResponse | ApiFailure>> {
   try {
     const { id } = await params;
+
+    // IDフォーマット検証
+    if (!isValidDocumentId(id)) {
+      const error: ApiError = {
+        code: 'INVALID_ID_FORMAT',
+        message: 'IDのフォーマットが不正です',
+      };
+      return NextResponse.json({ success: false, error } as ApiFailure, {
+        status: 400,
+      });
+    }
 
     const db = getDb();
     const docRef = db.collection('conversations').doc(id);
