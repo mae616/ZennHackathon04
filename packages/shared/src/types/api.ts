@@ -1,3 +1,9 @@
+/**
+ * @fileoverview API通信の型定義
+ *
+ * REST APIのリクエスト・レスポンスに使用するZodスキーマと型を定義する。
+ * 拡張機能からWebアプリAPIへの通信で共有される型定義。
+ */
 import { z } from 'zod';
 import { ConversationSchema } from './conversation';
 

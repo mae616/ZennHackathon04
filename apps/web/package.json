@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@zenn-hackathon04/shared": "workspace:^",
+    "firebase-admin": "^13.6.0",
+    "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
