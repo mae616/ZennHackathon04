@@ -15,7 +15,7 @@ LLM対話（ChatGPT/Claude/Gemini）から「重要なやり取り」をキャ�
 | 領域 | 技術 |
 |------|------|
 | モノレポ | pnpm workspaces |
-| Web | Next.js 16 App Router + React 19 |
+| Web | Next.js 15 App Router + React 19 |
 | 拡張機能 | WXT 0.20+ (Manifest V3) |
 | 共通型定義 | Zod 3.24+ |
 | スタイル | Tailwind CSS v4 |
@@ -42,10 +42,23 @@ pnpm build
 # Lint
 pnpm lint
 
+# TypeCheck（個別）
+pnpm --filter @zenn-hackathon04/web exec tsc --noEmit
+pnpm --filter @zenn-hackathon04/shared lint  # sharedはtsc --noEmit
+
 # 拡張機能をChromeで読み込み
 # 1. pnpm --filter @zenn-hackathon04/extension build
 # 2. chrome://extensions → デベロッパーモード → 「パッケージ化されていない拡張機能を読み込む」
 # 3. apps/extension/.output/chrome-mv3 を選択
+```
+
+## 環境変数
+
+`.env.local` に以下を設定（Firebase Admin SDK用）:
+```
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 ## アーキテクチャ
@@ -119,9 +132,11 @@ import { ConversationSchema, type Conversation, type SourcePlatform } from '@zen
 
 | プラットフォーム | マッチパターン | 状態 |
 |-----------------|---------------|------|
-| Gemini | `*://*.google.com/*` | 実装済み |
+| Gemini | `*://gemini.google.com/*` | 実装済み |
 | ChatGPT | `*://chat.openai.com/*` | 計画中 |
 | Claude | `*://claude.ai/*` | 計画中 |
+
+**DOM解析セレクタ**: `apps/extension/lib/parsers/gemini.ts` の `GEMINI_SELECTORS` に定数化。DOM構造変更時はここを更新。
 
 ## デザイン・スタイル
 
