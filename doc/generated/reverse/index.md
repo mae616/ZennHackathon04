@@ -4,7 +4,7 @@
 
 - **生成日時**: 2026-02-02
 - **解析対象**: `apps/web`, `apps/extension`, `packages/shared`
-- **SSOT参照**: `doc/input/rdd.md`, `doc/input/architecture.md`
+- **SSOT参照**: `doc/input/rdd.md`, `doc/input/architecture.md`（SOLID原則を定義）
 
 ## 読む順番（推奨）
 

@@ -81,7 +81,7 @@ sequenceDiagram
 | 領域 | 技術 | バージョン |
 |------|------|-----------|
 | モノレポ | pnpm workspaces | 9+ |
-| Web | Next.js App Router | 15 |
+| Web | Next.js App Router | 16 |
 | 拡張機能 | WXT (Manifest V3) | 0.20+ |
 | 共通型定義 | Zod | 3.24+ |
 | スタイル | Tailwind CSS | v4 |

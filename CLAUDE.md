@@ -15,7 +15,7 @@ LLM対話（ChatGPT/Claude/Gemini）から「重要なやり取り」をキャ�
 | 領域 | 技術 |
 |------|------|
 | モノレポ | pnpm workspaces |
-| Web | Next.js 15 App Router + React 19 |
+| Web | Next.js 16 App Router + React 19 |
 | 拡張機能 | WXT 0.20+ (Manifest V3) |
 | 共通型定義 | Zod 3.24+ |
 | スタイル | Tailwind CSS v4 |
