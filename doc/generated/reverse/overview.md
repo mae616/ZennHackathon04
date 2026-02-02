@@ -30,7 +30,7 @@ C4Context
 
     System_Boundary(thinkresume, "ThinkResume") {
         Container(extension, "Chrome拡張", "WXT/Manifest V3", "対話キャプチャ")
-        Container(web, "Webアプリ", "Next.js 15", "管理画面 + API")
+        Container(web, "Webアプリ", "Next.js 16", "管理画面 + API")
         ContainerDb(firestore, "Firestore", "NoSQL", "対話データ永続化")
     }
 
