@@ -17,7 +17,7 @@ paginate: true
 
 ## 技術スタック（事実）
 - モノレポ: pnpm workspaces
-- フロント/バックエンド: Next.js 15 App Router（Cloud Run想定）
+- フロント/バックエンド: Next.js 16 App Router（Cloud Run想定）
 - 拡張機能: WXT（Manifest V3、Chrome Extension）
 - 共通スキーマ: Zod
 - AI: Vertex AI (Gemini)
@@ -176,7 +176,7 @@ paginate: true
 # ⚙️ 技術スタック
 ## コンテキスト（AI用）
 - 言語/ランタイム: TypeScript 5.9+, Node.js 20+
-- フレームワーク: Next.js 15 (App Router), WXT (Chrome Extension)
+- フレームワーク: Next.js 16 (App Router), WXT (Chrome Extension)
 - DB/インフラ: Firestore, Cloud Run, Vertex AI
 - テスト戦略: Vitest（後日追加）
 - 観測性: Cloud Logging（後日）
@@ -184,7 +184,7 @@ paginate: true
 ## 人間レビュー用
 - 選定理由:
   - pnpm workspaces: Hackathon規模でシンプル
-  - Next.js 15: Cloud Run対応、API Routes統合
+  - Next.js 16: Cloud Run対応、API Routes統合
   - WXT: 2025年Chrome拡張デファクト、HMR優秀
   - GCP統一: 認証・インフラ管理を簡素化
 
@@ -234,7 +234,7 @@ paginate: true
 - `doc/Architecture.md`（未作成）
 - `doc/design/`
 - WXT公式: https://wxt.dev/
-- Next.js 15: https://nextjs.org/
+- Next.js 16: https://nextjs.org/
 
 ## 人間レビュー用
 - 追加資料は随時追加
