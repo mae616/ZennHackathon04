@@ -58,7 +58,7 @@ export function InsightSection() {
           color: 'var(--gray-700)',
         }}
       >
-        💡 洞察機能は Sprint 2 で実装予定
+        洞察機能は Sprint 2 で実装予定
       </div>
     </section>
   );
