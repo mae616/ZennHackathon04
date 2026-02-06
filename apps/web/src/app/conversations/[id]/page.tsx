@@ -64,13 +64,13 @@ export default async function ConversationDetailPage({ params }: Props) {
             messages={conversation.messages}
             source={conversation.source}
           />
-          <NoteSection note={conversation.note} />
+          <NoteSection conversationId={conversation.id} note={conversation.note} />
           <InsightSection />
         </div>
 
         {/* 右カラム: 思考再開パネル */}
         <div className="w-[400px] flex-shrink-0">
-          <ThinkResumePanel />
+          <ThinkResumePanel conversation={conversation} />
         </div>
       </div>
     </div>
