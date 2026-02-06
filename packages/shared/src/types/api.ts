@@ -76,3 +76,25 @@ export type ListConversationsResponse = z.infer<typeof ListConversationsResponse
  */
 export const GetConversationResponseSchema = ApiSuccessSchema(ConversationSchema);
 export type GetConversationResponse = z.infer<typeof GetConversationResponseSchema>;
+
+/**
+ * 対話更新（PATCH）リクエストのスキーマ
+ * - note: メモの更新
+ * - title, tags 等も将来的に拡張可能
+ */
+export const UpdateConversationRequestSchema = z.object({
+  /** 更新するメモ内容 */
+  note: z.string().optional(),
+});
+export type UpdateConversationRequest = z.infer<typeof UpdateConversationRequestSchema>;
+
+/**
+ * 対話更新（PATCH）レスポンスのスキーマ
+ */
+export const UpdateConversationResponseSchema = ApiSuccessSchema(
+  z.object({
+    /** 更新日時（ISO 8601形式） */
+    updatedAt: z.string().datetime(),
+  })
+);
+export type UpdateConversationResponse = z.infer<typeof UpdateConversationResponseSchema>;
