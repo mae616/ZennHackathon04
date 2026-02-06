@@ -303,7 +303,12 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
       </div>
 
       {/* チャットエリア */}
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+      <div
+        className="flex flex-1 flex-col gap-4 overflow-y-auto p-4"
+        role="log"
+        aria-live="polite"
+        aria-label="Geminiとの対話履歴"
+      >
         {messages.map((message) => (
           <ChatBubble key={message.id} message={message} />
         ))}
@@ -369,6 +374,7 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="メッセージを入力..."
           disabled={isLoading}
+          aria-label="Geminiへのメッセージ"
           className="flex h-10 flex-1 rounded-sm px-3 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           style={{
             backgroundColor: 'var(--bg-page)',
@@ -382,6 +388,7 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
           className="flex h-10 w-10 items-center justify-center rounded-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: 'var(--red-primary)' }}
           title="送信"
+          aria-label={isLoading ? '送信中...' : 'メッセージを送信'}
         >
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-white" />
