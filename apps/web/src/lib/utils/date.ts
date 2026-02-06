@@ -20,3 +20,21 @@ export function formatDate(dateString: string): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * 現在日時を追記用ヘッダー形式でフォーマットする
+ * RDD参照: §メモ・要件の編集機能「YYYY/MM/DD HH:MM 追記」
+ *
+ * @returns 追記ヘッダー文字列（例: 2024/01/15 14:30 追記）
+ */
+export function formatAppendHeader(): string {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${dateStr} 追記`;
+}

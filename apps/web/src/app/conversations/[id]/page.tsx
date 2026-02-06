@@ -64,7 +64,7 @@ export default async function ConversationDetailPage({ params }: Props) {
             messages={conversation.messages}
             source={conversation.source}
           />
-          <NoteSection note={conversation.note} />
+          <NoteSection conversationId={conversation.id} note={conversation.note} />
           <InsightSection />
         </div>
 
