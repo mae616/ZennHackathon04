@@ -70,7 +70,7 @@ export default async function ConversationDetailPage({ params }: Props) {
 
         {/* 右カラム: 思考再開パネル */}
         <div className="w-[400px] flex-shrink-0">
-          <ThinkResumePanel />
+          <ThinkResumePanel conversation={conversation} />
         </div>
       </div>
     </div>

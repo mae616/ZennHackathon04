@@ -1,0 +1,159 @@
+/**
+ * チャットAPIエンドポイント
+ *
+ * POST /api/chat
+ * - 対話コンテキストを元にGeminiとストリーミングチャットを行う
+ * - conversationIdから対話を取得し、コンテキストを構築
+ * - ユーザーメッセージに対するGeminiの応答をストリーミングで返す
+ *
+ * RDD参照:
+ * - doc/input/rdd.md §思考再開機能
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import type { ApiError, ApiFailure, Conversation } from '@zenn-hackathon04/shared';
+import { getDb } from '@/lib/firebase/admin';
+import {
+  streamChat,
+  type GeminiMessage,
+  type ThinkResumeContext,
+} from '@/lib/vertex/gemini';
+
+/**
+ * チャットリクエストのスキーマ
+ */
+const ChatRequestSchema = z.object({
+  /** 対話ID（コンテキスト取得用） */
+  conversationId: z.string().min(1),
+  /** ユーザーのメッセージ */
+  userMessage: z.string().min(1),
+  /** これまでのGeminiとのチャット履歴 */
+  chatHistory: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'model']),
+        content: z.string(),
+      })
+    )
+    .default([]),
+});
+
+/**
+ * 対話履歴からコンテキスト用の要約を生成する
+ *
+ * @param conversation - 保存された対話
+ * @returns 要約テキスト
+ */
+function buildConversationSummary(conversation: Conversation): string {
+  const messages = conversation.messages
+    .map((msg) => {
+      const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
+      return `${role}: ${msg.content}`;
+    })
+    .join('\n\n');
+
+  return messages;
+}
+
+/**
+ * ストリーミングチャットエンドポイント
+ *
+ * @param request - POSTリクエスト（conversationId, userMessage, chatHistory）
+ * @returns ストリーミングレスポンス（text/event-stream）
+ */
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse | Response> {
+  try {
+    // リクエストボディのパース
+    const body = await request.json();
+    const parseResult = ChatRequestSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      const error: ApiError = {
+        code: 'INVALID_REQUEST',
+        message: 'リクエストの形式が不正です',
+        details: parseResult.error.flatten(),
+      };
+      return NextResponse.json({ success: false, error } as ApiFailure, {
+        status: 400,
+      });
+    }
+
+    const { conversationId, userMessage, chatHistory } = parseResult.data;
+
+    // 対話データを取得
+    const db = getDb();
+    const docRef = db.collection('conversations').doc(conversationId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      const error: ApiError = {
+        code: 'NOT_FOUND',
+        message: '指定された対話が見つかりません',
+      };
+      return NextResponse.json({ success: false, error } as ApiFailure, {
+        status: 404,
+      });
+    }
+
+    const conversation: Conversation = {
+      id: doc.id,
+      ...doc.data(),
+    } as Conversation;
+
+    // 思考再開コンテキストを構築
+    const context: ThinkResumeContext = {
+      conversationSummary: buildConversationSummary(conversation),
+      title: conversation.title,
+      note: conversation.note,
+    };
+
+    // チャット履歴を変換
+    const messages: GeminiMessage[] = chatHistory.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // ストリーミングレスポンスを生成
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamChat(context, messages, userMessage)) {
+            // Server-Sent Events形式でデータを送信
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+          }
+          // 完了シグナル
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (error) {
+          // エラー発生時はエラーメッセージを送信してストリームを閉じる
+          const errorMessage =
+            error instanceof Error ? error.message : 'Gemini APIでエラーが発生しました';
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`)
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  } catch (error) {
+    console.error('Chat API error:', error);
+    const apiError: ApiError = {
+      code: 'INTERNAL_ERROR',
+      message: 'サーバーエラーが発生しました',
+    };
+    return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
+      status: 500,
+    });
+  }
+}
