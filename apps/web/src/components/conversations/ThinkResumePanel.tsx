@@ -13,7 +13,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
 
@@ -29,6 +29,21 @@ interface ChatMessage {
 interface ThinkResumePanelProps {
   /** 対話データ（コンテキスト用） */
   conversation: Conversation;
+  /** 洞察保存後のコールバック */
+  onInsightSaved?: () => void;
+}
+
+interface ChatBubbleProps {
+  /** 表示するメッセージ */
+  message: ChatMessage;
+  /** 洞察保存ボタンの表示有無 */
+  showSaveInsight?: boolean;
+  /** 洞察として保存済みか */
+  isSaved?: boolean;
+  /** 保存中か */
+  isSaving?: boolean;
+  /** 洞察保存ボタン押下時のコールバック */
+  onSaveInsight?: () => void;
 }
 
 /**
@@ -36,12 +51,19 @@ interface ThinkResumePanelProps {
  *
  * Geminiとの対話メッセージを表示する。
  * user: 右寄せ黒背景、model: 左寄せ赤背景で区別。
+ * modelメッセージ（greeting以外）には洞察保存ボタンを表示できる。
  */
-function ChatBubble({ message }: { message: ChatMessage }) {
+function ChatBubble({
+  message,
+  showSaveInsight = false,
+  isSaved = false,
+  isSaving = false,
+  onSaveInsight,
+}: ChatBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
       <div
         className={`max-w-[85%] rounded-lg px-4 py-3 ${
           isUser ? 'rounded-br-sm' : 'rounded-bl-sm'
@@ -53,6 +75,34 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       >
         <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
       </div>
+      {showSaveInsight && (
+        <button
+          type="button"
+          onClick={onSaveInsight}
+          disabled={isSaved || isSaving}
+          className="mt-1 flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:opacity-70 disabled:cursor-default disabled:opacity-100"
+          style={{
+            color: isSaved ? 'var(--gray-500)' : 'var(--red-primary)',
+          }}
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              保存中...
+            </>
+          ) : isSaved ? (
+            <>
+              <Check className="h-3 w-3" />
+              保存済み
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" />
+              洞察として保存
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -87,7 +137,7 @@ function StreamingIndicator({ content }: { content: string }) {
  *
  * @param conversation - 対話データ
  */
-export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
+export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePanelProps) {
   /** チャット履歴 */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   /** 入力中のメッセージ */
@@ -100,6 +150,10 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
   const [error, setError] = useState<string | null>(null);
   /** 初期化済みフラグ */
   const [isInitialized, setIsInitialized] = useState(false);
+  /** 洞察保存済みのメッセージIDセット */
+  const [savedInsightIds, setSavedInsightIds] = useState<Set<string>>(new Set());
+  /** 洞察保存中のメッセージID */
+  const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
 
   /** メッセージリストのスクロールコンテナ */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -261,7 +315,62 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
     setInput('');
     setStreamingContent('');
     setError(null);
+    setSavedInsightIds(new Set());
+    setSavingInsightId(null);
   };
+
+  /**
+   * メッセージを洞察として保存する
+   *
+   * 対象のmodelメッセージの直前のuserメッセージとペアで保存する。
+   *
+   * @param modelMessageId - 保存対象のmodelメッセージID
+   */
+  const handleSaveInsight = useCallback(
+    async (modelMessageId: string) => {
+      // 対象メッセージを取得
+      const modelMessageIndex = messages.findIndex((m) => m.id === modelMessageId);
+      if (modelMessageIndex < 0) return;
+
+      const modelMessage = messages[modelMessageIndex];
+
+      // 直前のuserメッセージを取得
+      let userMessage: ChatMessage | undefined;
+      for (let i = modelMessageIndex - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          userMessage = messages[i];
+          break;
+        }
+      }
+
+      if (!userMessage) return;
+
+      setSavingInsightId(modelMessageId);
+
+      try {
+        const response = await fetch('/api/insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId: conversation.id,
+            question: userMessage.content,
+            answer: modelMessage.content,
+          }),
+        });
+
+        if (response.ok) {
+          setSavedInsightIds((prev) => new Set(prev).add(modelMessageId));
+          onInsightSaved?.();
+        }
+      } catch {
+        // 保存エラーは静かに失敗（UIにエラー表示しない）
+        console.error('洞察の保存に失敗しました');
+      } finally {
+        setSavingInsightId(null);
+      }
+    },
+    [messages, conversation.id, onInsightSaved]
+  );
 
   return (
     <div
@@ -309,9 +418,22 @@ export function ThinkResumePanel({ conversation }: ThinkResumePanelProps) {
         aria-live="polite"
         aria-label="Geminiとの対話履歴"
       >
-        {messages.map((message) => (
-          <ChatBubble key={message.id} message={message} />
-        ))}
+        {messages.map((message) => {
+          // greeting以外のmodelメッセージに保存ボタンを表示
+          const showSaveInsight =
+            message.role === 'model' && message.id !== 'greeting';
+
+          return (
+            <ChatBubble
+              key={message.id}
+              message={message}
+              showSaveInsight={showSaveInsight}
+              isSaved={savedInsightIds.has(message.id)}
+              isSaving={savingInsightId === message.id}
+              onSaveInsight={() => handleSaveInsight(message.id)}
+            />
+          );
+        })}
 
         {/* ストリーミング中の表示 */}
         {isLoading && streamingContent && (

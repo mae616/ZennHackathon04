@@ -12,10 +12,7 @@ import { notFound } from 'next/navigation';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { fetchConversation } from '@/lib/api';
 import { ConversationHeader } from '@/components/conversations/ConversationHeader';
-import { ChatHistorySection } from '@/components/conversations/ChatHistorySection';
-import { NoteSection } from '@/components/conversations/NoteSection';
-import { InsightSection } from '@/components/conversations/InsightSection';
-import { ThinkResumePanel } from '@/components/conversations/ThinkResumePanel';
+import { ConversationDetailContent } from '@/components/conversations/ConversationDetailContent';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -57,22 +54,7 @@ export default async function ConversationDetailPage({ params }: Props) {
       <ConversationHeader conversation={conversation} />
 
       {/* メインコンテンツ: 左カラム（履歴・メモ・洞察）+ 右カラム（思考再開） */}
-      <div className="flex flex-1 gap-6">
-        {/* 左カラム: 対話履歴、メモ、洞察 */}
-        <div className="flex flex-1 flex-col gap-6">
-          <ChatHistorySection
-            messages={conversation.messages}
-            source={conversation.source}
-          />
-          <NoteSection conversationId={conversation.id} note={conversation.note} />
-          <InsightSection />
-        </div>
-
-        {/* 右カラム: 思考再開パネル */}
-        <div className="w-[400px] flex-shrink-0">
-          <ThinkResumePanel conversation={conversation} />
-        </div>
-      </div>
+      <ConversationDetailContent conversation={conversation} />
     </div>
   );
 }

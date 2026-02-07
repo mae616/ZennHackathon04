@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { ConversationSchema } from './conversation';
+import { InsightSchema } from './insight';
 
 /**
  * API共通のエラーレスポンススキーマ
@@ -98,3 +99,40 @@ export const UpdateConversationResponseSchema = ApiSuccessSchema(
   })
 );
 export type UpdateConversationResponse = z.infer<typeof UpdateConversationResponseSchema>;
+
+/**
+ * 洞察保存リクエストのスキーマ
+ */
+export const SaveInsightRequestSchema = z.object({
+  /** 紐づく対話のID */
+  conversationId: z.string(),
+  /** ユーザーの質問 */
+  question: z.string(),
+  /** Geminiの回答 */
+  answer: z.string(),
+});
+export type SaveInsightRequest = z.infer<typeof SaveInsightRequestSchema>;
+
+/**
+ * 洞察保存レスポンスのスキーマ
+ */
+export const SaveInsightResponseSchema = ApiSuccessSchema(
+  z.object({
+    /** 保存された洞察のID */
+    id: z.string(),
+    /** 作成日時（ISO 8601形式） */
+    createdAt: z.string().datetime(),
+  })
+);
+export type SaveInsightResponse = z.infer<typeof SaveInsightResponseSchema>;
+
+/**
+ * 洞察一覧取得レスポンスのスキーマ
+ */
+export const ListInsightsResponseSchema = ApiSuccessSchema(
+  z.object({
+    /** 洞察の配列 */
+    insights: z.array(InsightSchema),
+  })
+);
+export type ListInsightsResponse = z.infer<typeof ListInsightsResponseSchema>;

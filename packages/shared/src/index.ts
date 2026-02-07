@@ -8,3 +8,6 @@ export * from './types/conversation';
 
 // API関連
 export * from './types/api';
+
+// 洞察関連
+export * from './types/insight';
