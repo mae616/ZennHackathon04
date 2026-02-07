@@ -105,11 +105,11 @@ export type UpdateConversationResponse = z.infer<typeof UpdateConversationRespon
  */
 export const SaveInsightRequestSchema = z.object({
   /** 紐づく対話のID */
-  conversationId: z.string(),
+  conversationId: z.string().min(1),
   /** ユーザーの質問 */
-  question: z.string(),
+  question: z.string().min(1).max(10000),
   /** Geminiの回答 */
-  answer: z.string(),
+  answer: z.string().min(1).max(10000),
 });
 export type SaveInsightRequest = z.infer<typeof SaveInsightRequestSchema>;
 

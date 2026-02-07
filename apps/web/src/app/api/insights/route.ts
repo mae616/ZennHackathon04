@@ -56,8 +56,20 @@ export async function POST(
     const data = parseResult.data;
     const now = new Date().toISOString();
 
-    // Firestoreに保存
+    // 参照先の対話が存在するか確認
     const db = getDb();
+    const conversationDoc = await db.collection('conversations').doc(data.conversationId).get();
+    if (!conversationDoc.exists) {
+      const error: ApiError = {
+        code: 'NOT_FOUND',
+        message: '指定された対話が見つかりません',
+      };
+      return NextResponse.json({ success: false, error } as ApiFailure, {
+        status: 404,
+      });
+    }
+
+    // Firestoreに保存
     const docRef = await db.collection('insights').add({
       ...data,
       createdAt: now,
