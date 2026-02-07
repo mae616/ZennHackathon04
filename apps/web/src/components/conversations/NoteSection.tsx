@@ -11,6 +11,7 @@
 import { useState, useCallback } from 'react';
 import { FileText, Pencil, Plus, X, Loader2, Check } from 'lucide-react';
 import { formatAppendHeader } from '@/lib/utils/date';
+import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning';
 
 interface NoteSectionProps {
   /** 対話ID（API呼び出し用） */
@@ -32,8 +33,11 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
   const [currentNote, setCurrentNote] = useState(note ?? '');
   const [editMode, setEditMode] = useState<EditMode>('none');
   const [editValue, setEditValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 編集中のページ離脱警告（ブラウザ離脱 + クライアントサイドナビゲーション両対応）
+  useUnsavedChangesWarning(editMode !== 'none');
 
   /**
    * 編集モードを開始する
@@ -63,25 +67,32 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
   }, []);
 
   /**
-   * メモを保存する（編集または追記）
+   * メモを保存する（Optimistic Update）
+   *
+   * 即座にUIを更新し、バックグラウンドでAPIに保存する。
+   * エラー時はロールバックしてエラーを表示する。
    */
   const saveNote = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
 
+    let newNote: string;
+
+    if (editMode === 'edit') {
+      newNote = editValue;
+    } else {
+      const header = formatAppendHeader();
+      const appendContent = `\n\n---\n${header}\n${editValue}`;
+      newNote = currentNote ? `${currentNote}${appendContent}` : `${header}\n${editValue}`;
+    }
+
+    // Optimistic Update: UI を先に更新する
+    const previousNote = currentNote;
+    setCurrentNote(newNote);
+    setEditMode('none');
+    setEditValue('');
+    setIsSaving(true);
+
     try {
-      let newNote: string;
-
-      if (editMode === 'edit') {
-        // 直接編集: そのまま置き換え
-        newNote = editValue;
-      } else {
-        // 追記: タイムスタンプ付きで追加
-        const header = formatAppendHeader();
-        const appendContent = `\n\n---\n${header}\n${editValue}`;
-        newNote = currentNote ? `${currentNote}${appendContent}` : `${header}\n${editValue}`;
-      }
-
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -93,15 +104,12 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
       if (!response.ok || !result.success) {
         throw new Error(result.error?.message ?? '保存に失敗しました');
       }
-
-      // 成功時: UIを更新
-      setCurrentNote(newNote);
-      setEditMode('none');
-      setEditValue('');
     } catch (err) {
+      // エラー時: ロールバック
+      setCurrentNote(previousNote);
       setError(err instanceof Error ? err.message : '保存に失敗しました');
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   }, [conversationId, currentNote, editMode, editValue]);
 
@@ -134,6 +142,13 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
         {/* アクションボタン群（表示モード時のみ） */}
         {editMode === 'none' && (
           <div className="flex items-center gap-2">
+            {/* バックグラウンド保存中インジケーター */}
+            {isSaving && (
+              <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--gray-500)' }}>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                保存中...
+              </span>
+            )}
             {/* 追記ボタン */}
             <button
               type="button"
@@ -214,13 +229,13 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
               color: 'var(--gray-700)',
               backgroundColor: 'var(--bg-page)',
             }}
-            disabled={isLoading}
+            disabled={isSaving}
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={cancelEdit}
-              disabled={isLoading}
+              disabled={isSaving}
               className="flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs transition-colors hover:opacity-80 disabled:opacity-50"
               style={{
                 border: '1px solid var(--border)',
@@ -233,13 +248,13 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             <button
               type="button"
               onClick={saveNote}
-              disabled={isLoading}
+              disabled={isSaving}
               className="flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs text-white transition-colors hover:opacity-80 disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--red-primary, #ef4444)',
               }}
             >
-              {isLoading ? (
+              {isSaving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <Check className="h-3 w-3" />
@@ -296,7 +311,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
                 color: 'var(--gray-700)',
                 backgroundColor: 'var(--bg-page)',
               }}
-              disabled={isLoading}
+              disabled={isSaving}
             />
           </div>
 
@@ -304,7 +319,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             <button
               type="button"
               onClick={cancelEdit}
-              disabled={isLoading}
+              disabled={isSaving}
               className="flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs transition-colors hover:opacity-80 disabled:opacity-50"
               style={{
                 border: '1px solid var(--border)',
@@ -317,13 +332,13 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             <button
               type="button"
               onClick={saveNote}
-              disabled={isLoading || !editValue.trim()}
+              disabled={isSaving || !editValue.trim()}
               className="flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs text-white transition-colors hover:opacity-80 disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--red-primary, #ef4444)',
               }}
             >
-              {isLoading ? (
+              {isSaving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <Plus className="h-3 w-3" />

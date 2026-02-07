@@ -11,13 +11,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { ApiError, ApiFailure, Conversation } from '@zenn-hackathon04/shared';
+import type { Conversation } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
 import {
   streamChat,
   type GeminiMessage,
   type ThinkResumeContext,
 } from '@/lib/vertex/gemini';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
 
 /**
  * チャットリクエストのスキーマ
@@ -65,19 +66,23 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse | Response> {
   try {
-    // リクエストボディのパース
-    const body = await request.json();
+    // リクエストボディのパース（JSON構文エラーを個別ハンドリング）
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
+    }
+
     const parseResult = ChatRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
-      const error: ApiError = {
-        code: 'INVALID_REQUEST',
-        message: 'リクエストの形式が不正です',
-        details: parseResult.error.flatten(),
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(
+        400,
+        'VALIDATION_ERROR',
+        'リクエストの形式が不正です',
+        { fieldErrors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
+      );
     }
 
     const { conversationId, userMessage, chatHistory } = parseResult.data;
@@ -88,13 +93,7 @@ export async function POST(
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      const error: ApiError = {
-        code: 'NOT_FOUND',
-        message: '指定された対話が見つかりません',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 404,
-      });
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
     const conversation: Conversation = {
@@ -147,13 +146,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error('Chat API error:', error);
-    const apiError: ApiError = {
-      code: 'INTERNAL_ERROR',
-      message: 'サーバーエラーが発生しました',
-    };
-    return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
-      status: 500,
-    });
+    return createServerErrorResponse(error, 'POST /api/chat');
   }
 }
