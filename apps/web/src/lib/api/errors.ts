@@ -51,6 +51,29 @@ export function isVertexAIApiError(error: unknown): boolean {
 }
 
 /**
+ * クライアントエラーレスポンス（400/404等）を生成する
+ *
+ * バリデーションエラーやリソース未発見など、クライアント起因のエラーに使用する。
+ *
+ * @param status - HTTPステータスコード（400, 404 等）
+ * @param code - エラーコード（例: 'VALIDATION_ERROR', 'NOT_FOUND'）
+ * @param message - エラーメッセージ
+ * @param details - バリデーション詳細など追加情報（任意）
+ * @returns NextResponse
+ */
+export function createClientErrorResponse(
+  status: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>
+): NextResponse<ApiFailure> {
+  const apiError: ApiError = { code, message, ...(details ? { details } : {}) };
+  return NextResponse.json({ success: false, error: apiError } as ApiFailure, {
+    status,
+  });
+}
+
+/**
  * サーバーエラーレスポンスを生成する
  *
  * エラーの種類に応じて適切なApiFailureレスポンスを生成する。
