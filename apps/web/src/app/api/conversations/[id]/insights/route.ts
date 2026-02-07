@@ -3,7 +3,7 @@
  *
  * GET /api/conversations/:id/insights
  * - 指定した対話に紐づく洞察をFirestoreから取得する
- * - createdAt降順でソート
+ * - createdAt昇順でソート（新しいものが下＝ページの時系列に合わせる）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import type {
@@ -41,13 +41,13 @@ export async function GET(
       .where('conversationId', '==', conversationId)
       .get();
 
-    // ドキュメントをInsight型に変換し、createdAt降順でソート
+    // ドキュメントをInsight型に変換し、createdAt昇順でソート（新しいものが下）
     const insights: Insight[] = (
       snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Insight[]
-    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     const response: ListInsightsResponse = {
       success: true,

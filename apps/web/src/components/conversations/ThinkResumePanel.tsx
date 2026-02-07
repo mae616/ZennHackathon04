@@ -13,6 +13,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
@@ -73,7 +74,9 @@ function ChatBubble({
           color: isUser ? 'white' : 'var(--black-primary)',
         }}
       >
-        <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+        <div className="prose prose-sm max-w-none break-words text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <ReactMarkdown>{message.content}</ReactMarkdown>
+        </div>
       </div>
       {showSaveInsight && (
         <button
@@ -120,10 +123,10 @@ function StreamingIndicator({ content }: { content: string }) {
           color: 'var(--black-primary)',
         }}
       >
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {content}
+        <div className="prose prose-sm max-w-none break-words text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <ReactMarkdown>{content}</ReactMarkdown>
           <span className="ml-1 inline-block animate-pulse">|</span>
-        </p>
+        </div>
       </div>
     </div>
   );

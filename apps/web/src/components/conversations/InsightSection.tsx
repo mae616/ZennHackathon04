@@ -9,6 +9,7 @@
  */
 'use client';
 
+import ReactMarkdown from 'react-markdown';
 import { Lightbulb, Loader2, MessageSquare, Sparkles } from 'lucide-react';
 import type { Insight } from '@zenn-hackathon04/shared';
 
@@ -72,12 +73,12 @@ function InsightCard({ insight }: { insight: Insight }) {
           >
             Geminiの回答
           </p>
-          <p
-            className="whitespace-pre-wrap text-sm"
+          <div
+            className="prose prose-sm max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
             style={{ color: 'var(--black-primary)' }}
           >
-            {insight.answer}
-          </p>
+            <ReactMarkdown>{insight.answer}</ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>
