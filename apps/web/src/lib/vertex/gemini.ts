@@ -148,7 +148,7 @@ export async function* streamChat(
   const vertexAI = getVertexAI();
 
   const model = vertexAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     safetySettings: SAFETY_SETTINGS,
     generationConfig: {
       maxOutputTokens: 2048,
