@@ -34,17 +34,20 @@ export async function GET(
     const { id: conversationId } = await context.params;
 
     const db = getDb();
+    // NOTE: where + orderBy の複合クエリはFirestoreの複合インデックスが必要なため、
+    // クライアント側でソートする方式を採用（Hackathon規模では十分）
     const snapshot = await db
       .collection('insights')
       .where('conversationId', '==', conversationId)
-      .orderBy('createdAt', 'desc')
       .get();
 
-    // ドキュメントをInsight型に変換
-    const insights: Insight[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Insight[];
+    // ドキュメントをInsight型に変換し、createdAt降順でソート
+    const insights: Insight[] = (
+      snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Insight[]
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const response: ListInsightsResponse = {
       success: true,
