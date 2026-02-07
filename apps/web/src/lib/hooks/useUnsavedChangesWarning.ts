@@ -83,12 +83,14 @@ export function useUnsavedChangesWarning(isDirty: boolean): void {
       if (!confirmed) {
         // キャンセル: ダミーエントリを再度積んで現在のページに留まる
         history.pushState({ [GUARD_STATE_KEY]: true }, '');
+        isHandlingRef.current = false;
       } else {
-        // 確定: 本来の戻る操作を実行
+        // 確定: isHandlingRef は true のまま維持する
+        // history.back() は非同期で popstate を再発火するため、
+        // ここでリセットするとダイアログが二重表示される。
+        // コンポーネント unmount でクリーンアップされる。
         history.back();
       }
-
-      isHandlingRef.current = false;
     };
 
     window.addEventListener('popstate', handler);
