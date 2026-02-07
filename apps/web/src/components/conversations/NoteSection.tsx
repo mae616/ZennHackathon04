@@ -8,9 +8,10 @@
  */
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { FileText, Pencil, Plus, X, Loader2, Check } from 'lucide-react';
 import { formatAppendHeader } from '@/lib/utils/date';
+import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning';
 
 interface NoteSectionProps {
   /** 対話ID（API呼び出し用） */
@@ -34,24 +35,9 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** ロールバック用の前回メモ値 */
-  const previousNoteRef = useRef<string | null>(null);
 
-  /**
-   * 編集中のページ離脱を警告する（#30 アンセーブ警告）
-   *
-   * editMode が 'none' 以外のとき beforeunload で離脱確認ダイアログを表示。
-   */
-  useEffect(() => {
-    if (editMode === 'none') return;
-
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-    };
-
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [editMode]);
+  // 編集中のページ離脱警告（ブラウザ離脱 + クライアントサイドナビゲーション両対応）
+  useUnsavedChangesWarning(editMode !== 'none');
 
   /**
    * 編集モードを開始する
@@ -101,7 +87,6 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
 
     // Optimistic Update: UI を先に更新する
     const previousNote = currentNote;
-    previousNoteRef.current = previousNote;
     setCurrentNote(newNote);
     setEditMode('none');
     setEditValue('');
@@ -125,7 +110,6 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
       setError(err instanceof Error ? err.message : '保存に失敗しました');
     } finally {
       setIsSaving(false);
-      previousNoteRef.current = null;
     }
   }, [conversationId, currentNote, editMode, editValue]);
 

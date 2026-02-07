@@ -66,8 +66,14 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse | Response> {
   try {
-    // リクエストボディのパース
-    const body = await request.json();
+    // リクエストボディのパース（JSON構文エラーを個別ハンドリング）
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
+    }
+
     const parseResult = ChatRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
@@ -75,7 +81,7 @@ export async function POST(
         400,
         'VALIDATION_ERROR',
         'リクエストの形式が不正です',
-        parseResult.error.flatten() as unknown as Record<string, unknown>
+        { fieldErrors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
       );
     }
 
