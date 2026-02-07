@@ -21,10 +21,16 @@ const GUARD_STATE_KEY = '__unsavedGuard';
  * 未保存変更がある場合にページ離脱を警告する
  *
  * @param isDirty - 未保存の変更があるかどうか
+ *
+ * @remarks
+ * Next.js App Router 環境を前提とする。
+ * popstate ガードは history.pushState でダミーエントリを積む手法のため、
+ * SPA 内のルーティングとブラウザの戻る/進む操作の両方に影響する。
+ * confirmed 時の isPopstateHandlingRef リセットはコンポーネント unmount に依存している。
  */
 export function useUnsavedChangesWarning(isDirty: boolean): void {
   /** popstate ハンドラ内で confirm 処理中かどうか（再入防止） */
-  const isHandlingRef = useRef(false);
+  const isPopstateHandlingRef = useRef(false);
 
   // ブラウザ離脱（タブ閉じ/リロード）の警告
   useEffect(() => {
@@ -73,22 +79,26 @@ export function useUnsavedChangesWarning(isDirty: boolean): void {
     // ダミーのhistoryエントリを積んで、戻るボタンを検知できるようにする
     history.pushState({ [GUARD_STATE_KEY]: true }, '');
 
+    // popstate 発火の流れ:
+    // 1. ユーザーが戻るボタン押下 → ダミーエントリが消費されて popstate 発火
+    // 2. handler 内で window.confirm 表示
+    // 3-a. キャンセル → ダミーエントリを再度積んで現在のページに留まる
+    // 3-b. confirmed → history.back() で本来の戻る先に遷移
+    // 4. confirmed 時は isPopstateHandlingRef を true のまま維持する
+    //    理由: history.back() は非同期で popstate を再発火するため、
+    //    ここでリセットするとダイアログが二重表示される。
+    //    コンポーネント unmount でクリーンアップされる。
     const handler = () => {
-      if (isHandlingRef.current) return;
-      isHandlingRef.current = true;
+      if (isPopstateHandlingRef.current) return;
+      isPopstateHandlingRef.current = true;
 
       const confirmed = window.confirm(
         '編集内容が保存されていません。ページを離れますか？'
       );
       if (!confirmed) {
-        // キャンセル: ダミーエントリを再度積んで現在のページに留まる
         history.pushState({ [GUARD_STATE_KEY]: true }, '');
-        isHandlingRef.current = false;
+        isPopstateHandlingRef.current = false;
       } else {
-        // 確定: isHandlingRef は true のまま維持する
-        // history.back() は非同期で popstate を再発火するため、
-        // ここでリセットするとダイアログが二重表示される。
-        // コンポーネント unmount でクリーンアップされる。
         history.back();
       }
     };
