@@ -136,6 +136,23 @@ createServerErrorResponse(error, logPrefix)                 // 5xx（詳細隠�
 }
 ```
 
+## JSDoc充足状況
+
+| ファイル | 状態 | 備考 |
+|---------|------|------|
+| `NoteSection.tsx` | ✅ 充実 | `@fileoverview` + コンポーネントJSDoc |
+| `ThinkResumePanel.tsx` | ✅ 充実 | `@fileoverview` + 内部コンポーネント含む |
+| `InsightSection.tsx` | ✅ 充実 | `@fileoverview` + `InsightCard`含む |
+| `ConversationDetailContent.tsx` | ✅ 充実 | `@fileoverview` + メイン関数 |
+| `useUnsavedChangesWarning.ts` | ✅ 充実 | `@fileoverview` + `@remarks` 付き |
+| `errors.ts` | ✅ 充実 | 全4関数にJSDoc |
+| `vertex/gemini.ts` | ✅ 充実 | `@remarks` + `@example` 付き |
+| `vertex/types.ts` | ✅ 充実 | インターフェース・関数にJSDoc |
+| `api/chat/route.ts` | ⚠️ 部分的 | `@fileoverview` あり、`POST`関数の `@param`/`@returns` 詳細不足 |
+| `api/insights/route.ts` | ⚠️ 部分的 | `@fileoverview` あり、`POST`関数の `@param`/`@returns` 詳細不足 |
+
+**TODO**: `api/chat/route.ts` と `api/insights/route.ts` の `POST` 関数に `@param`/`@returns` 詳細を追加
+
 ## 次に読むべきドキュメント
 
 - Chrome拡張機能 → [extension.md](extension.md)

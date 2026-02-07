@@ -124,6 +124,16 @@ graph TD
 - **DRY原則**: スキーマ定義の重複を排除
 - **依存方向**: `shared` → `apps/*` の一方向依存
 
+## JSDoc充足状況
+
+| ファイル | 状態 | 備考 |
+|---------|------|------|
+| `types/conversation.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+| `types/api.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+| `types/insight.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+
+全ファイルのJSDocは充実しており、追加作業なし。
+
 ## 次に読むべきドキュメント
 
 - Webアプリケーション → [web.md](web.md)
