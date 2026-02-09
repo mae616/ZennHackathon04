@@ -42,10 +42,10 @@ export * from './types/insight';
 | スキーマ | 型 | 説明 |
 |---------|-----|------|
 | `MessageRoleSchema` | `'user' \| 'assistant' \| 'system'` | メッセージの役割 |
-| `MessageSchema` | `Message` | 単一メッセージ（id, role, content, timestamp） |
+| `MessageSchema` | `Message` | 単一メッセージ（id, role, content, timestamp）。`timestamp` は `z.string().datetime()` でISO 8601形式を強制 |
 | `ConversationStatusSchema` | `'active' \| 'archived' \| 'deleted'` | 対話ステータス |
 | `SourcePlatformSchema` | `'chatgpt' \| 'claude' \| 'gemini'` | ソースプラットフォーム |
-| `ConversationSchema` | `Conversation` | 対話全体（messages埋め込み） |
+| `ConversationSchema` | `Conversation` | 対話全体（messages埋め込み）。`status` default `'active'`、`tags` default `[]`、`note` optional |
 
 ### api.ts
 
@@ -108,6 +108,19 @@ graph TD
     WEB_LIB --> IDX
     EXT_CS --> IDX
     EXT_PU --> IDX
+```
+
+## 使用例
+
+### Web API（バリデーション）
+
+```typescript
+import { SaveConversationRequestSchema } from '@zenn-hackathon04/shared';
+
+const parseResult = SaveConversationRequestSchema.safeParse(body);
+if (!parseResult.success) {
+  // parseResult.error.flatten() で構造化エラーを取得
+}
 ```
 
 ## 設計意図

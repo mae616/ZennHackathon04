@@ -109,44 +109,44 @@ graph TB
 ## レイヤー構成
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer                        │
-│  ┌─────────────────┐  ┌─────────────────────────────────┐  │
-│  │ Chrome Extension │  │ Next.js Pages (App Router)      │  │
-│  │ - Popup UI       │  │ - page.tsx (一覧) [Server]      │  │
-│  │ - Content Script │  │ - conversations/[id] [Server]   │  │
-│  └─────────────────┘  │ - NoteSection [Client]          │  │
-│                        │ - ThinkResumePanel [Client]     │  │
-│                        │ - InsightSection [Client]       │  │
-│                        │ - Sidebar [Client]              │  │
-│                        └─────────────────────────────────┘  │
-├─────────────────────────────────────────────────────────────┤
-│                    Application Layer                         │
-│  ┌─────────────────┐  ┌─────────────────────────────────┐  │
-│  │ Parsers          │  │ API Routes                      │  │
-│  │ - gemini.ts      │  │ - POST/GET /api/conversations   │  │
-│  │ - index.ts       │  │ - GET/PATCH /api/conversations/:id │
-│  └─────────────────┘  │ - POST /api/chat (SSE)          │  │
-│                        │ - POST /api/insights            │  │
-│                        │ - GET /.../insights             │  │
-│                        └─────────────────────────────────┘  │
-├─────────────────────────────────────────────────────────────┤
-│                    Domain Layer                              │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ packages/shared                                      │   │
-│  │ - ConversationSchema, MessageSchema                  │   │
-│  │ - InsightSchema                                      │   │
-│  │ - ApiSuccessSchema, ApiFailureSchema                 │   │
-│  │ - SaveInsightRequestSchema, UpdateConversationSchema │   │
-│  └─────────────────────────────────────────────────────┘   │
-├─────────────────────────────────────────────────────────────┤
-│                    Infrastructure Layer                      │
-│  ┌─────────────────┐  ┌────────────────┐  ┌─────────────┐ │
-│  │ Firebase Admin   │  │ Vertex AI      │  │ WXT Runtime │ │
-│  │ - admin.ts       │  │ - gemini.ts    │  │ - browser.* │ │
-│  │ - getDb()        │  │ - types.ts     │  │             │ │
-│  └─────────────────┘  └────────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       Presentation Layer                         │
+│  ┌─────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Chrome Extension │  │ Next.js Pages (App Router)           │  │
+│  │ - Popup UI       │  │ - page.tsx (一覧) [Server]           │  │
+│  │ - Content Script │  │ - conversations/[id] [Server]        │  │
+│  └─────────────────┘  │ - NoteSection [Client]               │  │
+│                        │ - ThinkResumePanel [Client]          │  │
+│                        │ - InsightSection [Client]            │  │
+│                        │ - Sidebar [Client]                   │  │
+│                        └──────────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
+│                       Application Layer                          │
+│  ┌─────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Parsers          │  │ API Routes                           │  │
+│  │ - gemini.ts      │  │ - POST/GET /api/conversations        │  │
+│  │ - index.ts       │  │ - GET/PATCH /api/conversations/:id   │  │
+│  └─────────────────┘  │ - POST /api/chat (SSE)               │  │
+│                        │ - POST /api/insights                 │  │
+│                        │ - GET /.../insights                  │  │
+│                        └──────────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
+│                       Domain Layer                               │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ packages/shared                                           │   │
+│  │ - ConversationSchema, MessageSchema                       │   │
+│  │ - InsightSchema                                           │   │
+│  │ - ApiSuccessSchema, ApiFailureSchema                      │   │
+│  │ - SaveInsightRequestSchema, UpdateConversationSchema      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────┤
+│                       Infrastructure Layer                       │
+│  ┌─────────────────┐  ┌────────────────┐  ┌─────────────────┐  │
+│  │ Firebase Admin   │  │ Vertex AI      │  │ WXT Runtime     │  │
+│  │ - admin.ts       │  │ - gemini.ts    │  │ - browser.*     │  │
+│  │ - getDb()        │  │ - types.ts     │  │                 │  │
+│  └─────────────────┘  └────────────────┘  └─────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## データフロー

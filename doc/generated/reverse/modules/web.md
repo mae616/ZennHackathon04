@@ -85,6 +85,8 @@ apps/web/src/
 
 ## 主要な設計パターン
 
+※ データフロー（シーケンス図）は [architecture.md](../architecture.md#データフロー) を参照
+
 ### 1. Optimistic Update（NoteSection）
 
 ```

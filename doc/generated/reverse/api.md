@@ -76,11 +76,27 @@
 {
   "success": true,
   "data": {
-    "conversations": [...],
+    "conversations": [
+      {
+        "id": "abc123xyz",
+        "title": "React Hooks の使い方について",
+        "source": "gemini",
+        "messages": [...],
+        "status": "active",
+        "tags": ["React", "Hooks"],
+        "note": "useEffectのクリーンアップ関数が重要",
+        "createdAt": "2026-02-02T10:00:10.000Z",
+        "updatedAt": "2026-02-02T10:00:10.000Z"
+      }
+    ],
     "nextCursor": "def456uvw"
   }
 }
 ```
+
+**ページネーション**:
+- `nextCursor` がある場合、次ページが存在
+- 次ページ取得: `GET /api/conversations?cursor={nextCursor}`
 
 ---
 
