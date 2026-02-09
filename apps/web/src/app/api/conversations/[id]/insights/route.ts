@@ -12,7 +12,8 @@ import type {
   Insight,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -33,6 +34,11 @@ export async function GET(
   try {
     const { id: conversationId } = await context.params;
 
+    // IDフォーマット検証
+    if (!isValidDocumentId(conversationId)) {
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    }
+
     const db = getDb();
     // NOTE: where + orderBy の複合クエリはFirestoreの複合インデックスが必要なため、
     // クライアント側でソートする方式を採用（Hackathon規模では十分）
@@ -41,6 +47,7 @@ export async function GET(
       .where('conversationId', '==', conversationId)
       .get();
 
+    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
     // ドキュメントをInsight型に変換し、createdAt昇順でソート（新しいものが下）
     const insights: Insight[] = (
       snapshot.docs.map((doc) => ({

@@ -21,39 +21,13 @@ import {
   UpdateConversationRequestSchema,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /** ルートパラメータの型定義 */
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
-
-/**
- * Firestore Document IDのフォーマットを検証する
- * - 空文字でない
- * - 1〜1500バイト以内
- * - スラッシュ（/）を含まない
- * - 単一のピリオド（.）またはダブルピリオド（..）でない
- * - __.*__の形式でない（予約済み）
- *
- * @param id - 検証対象のID
- * @returns 有効なIDの場合true
- */
-function isValidDocumentId(id: string): boolean {
-  if (!id || id.length === 0 || id.length > 1500) {
-    return false;
-  }
-  if (id.includes('/')) {
-    return false;
-  }
-  if (id === '.' || id === '..') {
-    return false;
-  }
-  if (/^__.*__$/.test(id)) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * 指定IDの対話を取得する
@@ -140,8 +114,14 @@ export async function PATCH(
       });
     }
 
-    // リクエストボディのパース
-    const body = await request.json();
+    // リクエストボディのパース（JSON構文エラーを個別ハンドリング）
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
+    }
+
     const parseResult = UpdateConversationRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
