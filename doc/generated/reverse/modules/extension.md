@@ -239,6 +239,15 @@ const PLATFORM_URL_PATTERNS = [
 | ChatGPT | 🔲 計画中 | スタブ実装 |
 | Claude | 🔲 計画中 | スタブ実装 |
 
+## JSDoc充足状況
+
+| ファイル | 状態 | 備考 |
+|---------|------|------|
+| `parsers/gemini.ts` | ✅ 充実 | `@fileoverview` + `@remarks` + `@example` 付き |
+| `parsers/index.ts` | ✅ 充実 | `@fileoverview` + 関数・型にJSDoc + `@example` 付き |
+
+全ファイルのJSDocは充実しており、追加作業なし。
+
 ## 次に読むべきドキュメント
 
 - Webアプリケーション → [web.md](web.md)

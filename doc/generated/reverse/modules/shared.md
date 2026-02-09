@@ -14,7 +14,8 @@ packages/shared/
 │   ├── index.ts              # メインエクスポート
 │   └── types/
 │       ├── conversation.ts   # 対話関連型
-│       └── api.ts            # API通信型
+│       ├── api.ts            # API通信型
+│       └── insight.ts        # 洞察関連型（Sprint 2 追加）
 ├── tsconfig.json
 └── package.json
 ```
@@ -25,139 +26,49 @@ packages/shared/
 
 ```typescript
 // 対話関連
-export {
-  MessageRoleSchema,
-  MessageSchema,
-  ConversationStatusSchema,
-  SourcePlatformSchema,
-  ConversationSchema,
-  type MessageRole,
-  type Message,
-  type ConversationStatus,
-  type SourcePlatform,
-  type Conversation,
-} from './types/conversation';
+export * from './types/conversation';
 
 // API関連
-export {
-  ApiErrorSchema,
-  ApiSuccessSchema,
-  ApiFailureSchema,
-  SaveConversationRequestSchema,
-  SaveConversationResponseSchema,
-  ListConversationsResponseSchema,
-  GetConversationResponseSchema,
-  type ApiError,
-  type ApiFailure,
-  type SaveConversationRequest,
-  type SaveConversationResponse,
-  type ListConversationsResponse,
-  type GetConversationResponse,
-} from './types/api';
+export * from './types/api';
+
+// 洞察関連（Sprint 2 追加）
+export * from './types/insight';
 ```
 
 ## スキーマ定義
 
 ### conversation.ts
 
-```typescript
-import { z } from 'zod';
-
-// メッセージの役割
-export const MessageRoleSchema = z.enum(['user', 'assistant', 'system']);
-export type MessageRole = z.infer<typeof MessageRoleSchema>;
-
-// 単一メッセージ
-export const MessageSchema = z.object({
-  id: z.string(),
-  role: MessageRoleSchema,
-  content: z.string(),
-  timestamp: z.string().datetime(),
-});
-export type Message = z.infer<typeof MessageSchema>;
-
-// 対話ステータス
-export const ConversationStatusSchema = z.enum(['active', 'archived', 'deleted']);
-export type ConversationStatus = z.infer<typeof ConversationStatusSchema>;
-
-// ソースプラットフォーム
-export const SourcePlatformSchema = z.enum(['chatgpt', 'claude', 'gemini']);
-export type SourcePlatform = z.infer<typeof SourcePlatformSchema>;
-
-// 対話全体
-export const ConversationSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  source: SourcePlatformSchema,
-  messages: z.array(MessageSchema),
-  status: ConversationStatusSchema.default('active'),
-  tags: z.array(z.string()).default([]),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-  note: z.string().optional(),
-});
-export type Conversation = z.infer<typeof ConversationSchema>;
-```
+| スキーマ | 型 | 説明 |
+|---------|-----|------|
+| `MessageRoleSchema` | `'user' \| 'assistant' \| 'system'` | メッセージの役割 |
+| `MessageSchema` | `Message` | 単一メッセージ（id, role, content, timestamp）。`timestamp` は `z.string().datetime()` でISO 8601形式を強制 |
+| `ConversationStatusSchema` | `'active' \| 'archived' \| 'deleted'` | 対話ステータス |
+| `SourcePlatformSchema` | `'chatgpt' \| 'claude' \| 'gemini'` | ソースプラットフォーム |
+| `ConversationSchema` | `Conversation` | 対話全体（messages埋め込み）。`status` default `'active'`、`tags` default `[]`、`note` optional |
 
 ### api.ts
 
-```typescript
-import { z } from 'zod';
-import { ConversationSchema } from './conversation';
+| スキーマ | 型 | 説明 |
+|---------|-----|------|
+| `ApiErrorSchema` | `ApiError` | エラー詳細（code, message, details） |
+| `ApiSuccessSchema<T>` | generic | 成功レスポンス共通 |
+| `ApiFailureSchema` | `ApiFailure` | 失敗レスポンス共通 |
+| `SaveConversationRequestSchema` | `SaveConversationRequest` | 対話保存リクエスト |
+| `SaveConversationResponseSchema` | `SaveConversationResponse` | 対話保存レスポンス |
+| `ListConversationsResponseSchema` | `ListConversationsResponse` | 対話一覧レスポンス |
+| `GetConversationResponseSchema` | `GetConversationResponse` | 対話詳細レスポンス |
+| `UpdateConversationRequestSchema` | `UpdateConversationRequest` | メモ更新リクエスト（Sprint 2） |
+| `UpdateConversationResponseSchema` | `UpdateConversationResponse` | メモ更新レスポンス（Sprint 2） |
+| `SaveInsightRequestSchema` | `SaveInsightRequest` | 洞察保存リクエスト（Sprint 2） |
+| `SaveInsightResponseSchema` | `SaveInsightResponse` | 洞察保存レスポンス（Sprint 2） |
+| `ListInsightsResponseSchema` | `ListInsightsResponse` | 洞察一覧レスポンス（Sprint 2） |
 
-// エラー詳細
-export const ApiErrorSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-  details: z.record(z.unknown()).optional(),
-});
-export type ApiError = z.infer<typeof ApiErrorSchema>;
+### insight.ts（Sprint 2 追加）
 
-// 成功レスポンス（ジェネリック）
-export const ApiSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-  z.object({
-    success: z.literal(true),
-    data: dataSchema,
-  });
-
-// 失敗レスポンス
-export const ApiFailureSchema = z.object({
-  success: z.literal(false),
-  error: ApiErrorSchema,
-});
-export type ApiFailure = z.infer<typeof ApiFailureSchema>;
-
-// 対話保存リクエスト
-export const SaveConversationRequestSchema = ConversationSchema.omit({
-  id: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type SaveConversationRequest = z.infer<typeof SaveConversationRequestSchema>;
-
-// 対話保存レスポンス
-export const SaveConversationResponseSchema = ApiSuccessSchema(
-  z.object({
-    id: z.string(),
-    createdAt: z.string().datetime(),
-  })
-);
-export type SaveConversationResponse = z.infer<typeof SaveConversationResponseSchema>;
-
-// 対話一覧レスポンス
-export const ListConversationsResponseSchema = ApiSuccessSchema(
-  z.object({
-    conversations: z.array(ConversationSchema),
-    nextCursor: z.string().optional(),
-  })
-);
-export type ListConversationsResponse = z.infer<typeof ListConversationsResponseSchema>;
-
-// 対話詳細レスポンス
-export const GetConversationResponseSchema = ApiSuccessSchema(ConversationSchema);
-export type GetConversationResponse = z.infer<typeof GetConversationResponseSchema>;
-```
+| スキーマ | 型 | 説明 |
+|---------|-----|------|
+| `InsightSchema` | `Insight` | 洞察（id, conversationId, question, answer, createdAt, updatedAt） |
 
 ## 依存関係図
 
@@ -167,6 +78,7 @@ graph TD
         IDX[index.ts]
         CONV[types/conversation.ts]
         API[types/api.ts]
+        INS[types/insight.ts]
     end
 
     subgraph "apps/web"
@@ -180,14 +92,17 @@ graph TD
     end
 
     subgraph "External"
-        ZOD[zod]
+        ZOD[zod 3.24+]
     end
 
     IDX --> CONV
     IDX --> API
+    IDX --> INS
     API --> CONV
+    API --> INS
     CONV --> ZOD
     API --> ZOD
+    INS --> ZOD
 
     WEB_API --> IDX
     WEB_LIB --> IDX
@@ -200,28 +115,12 @@ graph TD
 ### Web API（バリデーション）
 
 ```typescript
-// apps/web/src/app/api/conversations/route.ts
 import { SaveConversationRequestSchema } from '@zenn-hackathon04/shared';
 
 const parseResult = SaveConversationRequestSchema.safeParse(body);
 if (!parseResult.success) {
-  // バリデーションエラー処理
+  // parseResult.error.flatten() で構造化エラーを取得
 }
-```
-
-### 拡張機能（型の使用）
-
-```typescript
-// apps/extension/entrypoints/popup/main.ts
-import type { Message, SourcePlatform } from '@zenn-hackathon04/shared';
-
-const formData: ConversationFormData = {
-  title: response.data.title ?? '無題の対話',
-  source: response.platform!,  // SourcePlatform型
-  messages: response.data.messages,  // Message[]型
-  tags: [],
-  note: '',
-};
 ```
 
 ## 設計意図
@@ -238,11 +137,15 @@ const formData: ConversationFormData = {
 - **DRY原則**: スキーマ定義の重複を排除
 - **依存方向**: `shared` → `apps/*` の一方向依存
 
-### スキーマ設計方針
+## JSDoc充足状況
 
-- **厳密性**: `z.string().datetime()` で日時形式を強制
-- **デフォルト値**: `status`, `tags` にデフォルトを設定
-- **Optional明示**: `note` のみオプショナル
+| ファイル | 状態 | 備考 |
+|---------|------|------|
+| `types/conversation.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+| `types/api.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+| `types/insight.ts` | ✅ 充実 | `@fileoverview` + スキーマ・型定義にコメント |
+
+全ファイルのJSDocは充実しており、追加作業なし。
 
 ## 次に読むべきドキュメント
 
