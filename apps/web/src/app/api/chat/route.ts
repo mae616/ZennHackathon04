@@ -46,14 +46,12 @@ const ChatRequestSchema = z.object({
  * @returns 要約テキスト
  */
 function buildConversationSummary(conversation: Conversation): string {
-  const messages = conversation.messages
+  return conversation.messages
     .map((msg) => {
       const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
       return `${role}: ${msg.content}`;
     })
     .join('\n\n');
-
-  return messages;
 }
 
 /**
@@ -96,10 +94,19 @@ export async function POST(
       return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
+    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
     const conversation: Conversation = {
       id: doc.id,
       ...doc.data(),
     } as Conversation;
+
+    // messagesの存在チェック（データ破損への防御）
+    if (!Array.isArray(conversation.messages)) {
+      return createServerErrorResponse(
+        new Error('conversation.messages is not an array'),
+        'POST /api/chat (data integrity)'
+      );
+    }
 
     // 思考再開コンテキストを構築
     const context: ThinkResumeContext = {
