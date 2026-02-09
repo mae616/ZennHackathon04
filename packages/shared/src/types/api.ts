@@ -84,9 +84,12 @@ export type GetConversationResponse = z.infer<typeof GetConversationResponseSche
  * - title, tags 等も将来的に拡張可能
  */
 export const UpdateConversationRequestSchema = z.object({
-  /** 更新するメモ内容 */
-  note: z.string().optional(),
-});
+  /** 更新するメモ内容（Firestoreドキュメントサイズ上限を考慮し50000文字制限） */
+  note: z.string().max(50000).optional(),
+}).refine(
+  (data) => Object.values(data).some((v) => v !== undefined),
+  { message: '少なくとも1つのフィールドを指定してください' }
+);
 export type UpdateConversationRequest = z.infer<typeof UpdateConversationRequestSchema>;
 
 /**

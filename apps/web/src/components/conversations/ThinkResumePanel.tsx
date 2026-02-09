@@ -18,6 +18,9 @@ import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lu
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
 
+/** 初回挨拶メッセージのID（フィルタリング・表示制御に使用） */
+const GREETING_MESSAGE_ID = 'greeting';
+
 /**
  * チャットメッセージの型
  */
@@ -187,13 +190,17 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
     const greeting = generateGreetingMessage(context);
     setMessages([
       {
-        id: 'greeting',
+        id: GREETING_MESSAGE_ID,
         role: 'model',
         content: greeting,
       },
     ]);
     setIsInitialized(true);
-  }, [conversation, isInitialized]);
+  // 初回マウント時の初期化専用。isInitializedガードで再実行を防止。
+  // conversation.note はSSR時の初期値のみ使用し、noteの編集による再実行は isInitialized で抑制される。
+  // messages は参照型のため length のみ指定し、無限ループを回避。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.id, conversation.messages.length, conversation.title, conversation.note, isInitialized]);
 
   /**
    * メッセージが追加されたらスクロール
@@ -205,7 +212,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
   /**
    * メッセージを送信してGeminiからの応答を取得する
    */
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedInput = input.trim();
@@ -213,7 +220,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
 
     // ユーザーメッセージを追加
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${crypto.randomUUID()}`,
       role: 'user',
       content: trimmedInput,
     };
@@ -226,7 +233,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
     try {
       // チャット履歴を準備（挨拶メッセージを除く）
       const chatHistory = messages
-        .filter((m) => m.id !== 'greeting')
+        .filter((m) => m.id !== GREETING_MESSAGE_ID)
         .map((m) => ({
           role: m.role,
           content: m.content,
@@ -274,17 +281,21 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
               break;
             }
 
+            // JSONパースエラーは不完全なチャンクの可能性があるため無視
+            // ただしGeminiからのエラーレスポンスは外側に伝播させる
+            let parsed: { text?: string; error?: string };
             try {
-              const parsed = JSON.parse(data);
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-              if (parsed.text) {
-                accumulatedContent += parsed.text;
-                setStreamingContent(accumulatedContent);
-              }
+              parsed = JSON.parse(data);
             } catch {
-              // JSONパースエラーは無視（不完全なチャンクの可能性）
+              continue;
+            }
+
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+            if (parsed.text) {
+              accumulatedContent += parsed.text;
+              setStreamingContent(accumulatedContent);
             }
           }
         }
@@ -293,7 +304,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       // ストリーミング完了後、メッセージリストに追加
       if (accumulatedContent) {
         const assistantMessage: ChatMessage = {
-          id: `model-${Date.now()}`,
+          id: `model-${crypto.randomUUID()}`,
           role: 'model',
           content: accumulatedContent,
         };
@@ -307,12 +318,12 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       setIsLoading(false);
       setStreamingContent('');
     }
-  };
+  }, [input, isLoading, messages, conversation.id]);
 
   /**
    * チャットをリセットする
    */
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setIsInitialized(false);
     setMessages([]);
     setInput('');
@@ -320,7 +331,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
     setError(null);
     setSavedInsightIds(new Set());
     setSavingInsightId(null);
-  };
+  }, []);
 
   /**
    * メッセージを洞察として保存する
@@ -367,7 +378,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
         }
       } catch {
         // 保存エラーは静かに失敗（UIにエラー表示しない）
-        console.error('洞察の保存に失敗しました');
+        // NOTE: 本番環境ではエラー監視サービスに送信すべき
       } finally {
         setSavingInsightId(null);
       }
@@ -424,7 +435,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
         {messages.map((message) => {
           // greeting以外のmodelメッセージに保存ボタンを表示
           const showSaveInsight =
-            message.role === 'model' && message.id !== 'greeting';
+            message.role === 'model' && message.id !== GREETING_MESSAGE_ID;
 
           return (
             <ChatBubble

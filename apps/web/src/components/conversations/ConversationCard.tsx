@@ -24,10 +24,13 @@ export function ConversationCard({ conversation }: ConversationCardProps) {
   const insightCount = 0;
 
   return (
+    <Link
+      href={`/conversations/${conversation.id}`}
+      className="group block rounded-lg transition-shadow hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
+    >
     <article
-      className="flex flex-col gap-4 rounded-lg border p-6"
+      className="flex flex-col gap-4 rounded-lg border border-[var(--border)] p-6 transition-colors group-hover:border-[#E8E8E8]/40"
       style={{
-        borderColor: 'var(--border)',
         backgroundColor: 'var(--bg-card)',
       }}
     >
@@ -90,16 +93,16 @@ export function ConversationCard({ conversation }: ConversationCardProps) {
           )}
         </div>
 
-        {/* 思考を再開ボタン */}
-        <Link
-          href={`/conversations/${conversation.id}`}
-          className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-80"
+        {/* 思考を再開ラベル */}
+        <span
+          className="flex items-center gap-1 text-sm font-medium"
           style={{ color: 'var(--red-primary)' }}
         >
           思考を再開
           <ArrowRight className="h-4 w-4" />
-        </Link>
+        </span>
       </footer>
     </article>
+    </Link>
   );
 }

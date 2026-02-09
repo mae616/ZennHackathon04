@@ -19,6 +19,7 @@ import {
   type ThinkResumeContext,
 } from '@/lib/vertex/gemini';
 import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /**
  * チャットリクエストのスキーマ
@@ -26,16 +27,17 @@ import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/
 const ChatRequestSchema = z.object({
   /** 対話ID（コンテキスト取得用） */
   conversationId: z.string().min(1),
-  /** ユーザーのメッセージ */
-  userMessage: z.string().min(1),
-  /** これまでのGeminiとのチャット履歴 */
+  /** ユーザーのメッセージ（メモリ消費防止のため上限設定） */
+  userMessage: z.string().min(1).max(10000),
+  /** これまでのGeminiとのチャット履歴（メモリ・トークン消費防止のため上限設定） */
   chatHistory: z
     .array(
       z.object({
         role: z.enum(['user', 'model']),
-        content: z.string(),
+        content: z.string().max(10000),
       })
     )
+    .max(50)
     .default([]),
 });
 
@@ -46,14 +48,12 @@ const ChatRequestSchema = z.object({
  * @returns 要約テキスト
  */
 function buildConversationSummary(conversation: Conversation): string {
-  const messages = conversation.messages
+  return conversation.messages
     .map((msg) => {
       const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
       return `${role}: ${msg.content}`;
     })
     .join('\n\n');
-
-  return messages;
 }
 
 /**
@@ -87,6 +87,11 @@ export async function POST(
 
     const { conversationId, userMessage, chatHistory } = parseResult.data;
 
+    // conversationIdのフォーマット検証（Firestore予約パターン等を排除）
+    if (!isValidDocumentId(conversationId)) {
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    }
+
     // 対話データを取得
     const db = getDb();
     const docRef = db.collection('conversations').doc(conversationId);
@@ -96,10 +101,19 @@ export async function POST(
       return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
+    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
     const conversation: Conversation = {
       id: doc.id,
       ...doc.data(),
     } as Conversation;
+
+    // messagesの存在チェック（データ破損への防御）
+    if (!Array.isArray(conversation.messages)) {
+      return createServerErrorResponse(
+        new Error('conversation.messages is not an array'),
+        'POST /api/chat (data integrity)'
+      );
+    }
 
     // 思考再開コンテキストを構築
     const context: ThinkResumeContext = {

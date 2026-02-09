@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Conversation, Insight } from '@zenn-hackathon04/shared';
+import { ConversationHeader } from '@/components/conversations/ConversationHeader';
 import { ChatHistorySection } from '@/components/conversations/ChatHistorySection';
 import { NoteSection } from '@/components/conversations/NoteSection';
 import { InsightSection } from '@/components/conversations/InsightSection';
@@ -33,6 +34,8 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
   const [insights, setInsights] = useState<Insight[]>([]);
   /** 洞察ローディング状態 */
   const [isInsightsLoading, setIsInsightsLoading] = useState(true);
+  /** 洞察取得エラー */
+  const [insightsError, setInsightsError] = useState(false);
 
   /**
    * 洞察一覧をAPIから取得する
@@ -40,16 +43,20 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
   const fetchInsights = useCallback(async () => {
     try {
       setIsInsightsLoading(true);
+      setInsightsError(false);
       const response = await fetch(`/api/conversations/${conversation.id}/insights`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           setInsights(data.data.insights);
+        } else {
+          setInsightsError(true);
         }
+      } else {
+        setInsightsError(true);
       }
     } catch {
-      // 取得エラーは静かに失敗（InsightSectionで空状態表示）
-      console.error('洞察の取得に失敗しました');
+      setInsightsError(true);
     } finally {
       setIsInsightsLoading(false);
     }
@@ -71,8 +78,9 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
 
   return (
     <div className="flex flex-1 gap-6">
-      {/* 左カラム: 対話履歴、メモ、洞察 */}
+      {/* 左カラム: ヘッダー、対話履歴、メモ、洞察 */}
       <div className="flex flex-1 flex-col gap-6">
+        <ConversationHeader conversation={conversation} />
         <ChatHistorySection
           messages={conversation.messages}
           source={conversation.source}
@@ -82,11 +90,13 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
           conversationId={conversation.id}
           insights={insights}
           isLoading={isInsightsLoading}
+          hasError={insightsError}
+          onRetry={fetchInsights}
         />
       </div>
 
-      {/* 右カラム: 思考再開パネル */}
-      <div className="w-[400px] flex-shrink-0">
+      {/* 右カラム: 思考再開パネル（ページスクロール時もビューポートに固定） */}
+      <div className="sticky top-8 w-[400px] flex-shrink-0 self-start h-[calc(100vh-4rem)]">
         <ThinkResumePanel
           conversation={conversation}
           onInsightSaved={handleInsightSaved}
