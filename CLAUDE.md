@@ -65,18 +65,18 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 ```
 apps/
-├── web/              # Next.js 15 App Router（管理画面 + API）
+├── web/              # Next.js 16 App Router（管理画面 + API）
 │   └── src/app/      # App Router ルート
 └── extension/        # Chrome拡張（WXT）
     └── entrypoints/  # content.ts, background.ts, popup/
 
 packages/
 └── shared/           # 共通型定義（Zod スキーマ）
-    └── src/types/    # conversation.ts, api.ts
+    └── src/types/    # conversation.ts, api.ts, insight.ts
 ```
 
 **データフロー**:
-拡張機能（DOM解析）→ Background（Storage API）→ Web API（Firestore保存）→ Web UI（一覧・詳細表示）→ Gemini（思考再開）
+拡張機能（DOM解析）→ Popup UI → Web API（Firestore保存）→ Web UI（一覧・詳細表示）→ Vertex AI/Gemini（思考再開）
 
 ## 共通スキーマ（@zenn-hackathon04/shared）
 
@@ -93,7 +93,13 @@ packages/
 - `ApiErrorSchema`: code, message, details
 - `ApiSuccessSchema<T>` / `ApiFailureSchema`: APIレスポンス共通型
 - `SaveConversationRequestSchema` / `ResponseSchema`: 保存API
+- `UpdateConversationRequestSchema` / `ResponseSchema`: メモ更新API（Sprint 2）
+- `SaveInsightRequestSchema` / `ResponseSchema`: 洞察保存API（Sprint 2）
 - `ListConversationsResponseSchema`: 一覧API（conversations[], nextCursor?）
+- `ListInsightsResponseSchema`: 洞察一覧API（Sprint 2）
+
+### insight.ts（Sprint 2 追加）
+- `InsightSchema`: id, conversationId, question, answer, createdAt, updatedAt
 
 インポート例:
 ```typescript
@@ -107,11 +113,15 @@ import { ConversationSchema, type Conversation, type SourcePlatform } from '@zen
 | `/api/conversations` | POST | 対話保存 |
 | `/api/conversations` | GET | 対話一覧 |
 | `/api/conversations/:id` | GET | 対話詳細 |
+| `/api/conversations/:id` | PATCH | メモ更新（Sprint 2） |
+| `/api/conversations/:id/insights` | GET | 洞察一覧（Sprint 2） |
+| `/api/chat` | POST | Gemini思考再開チャット/SSE（Sprint 2） |
+| `/api/insights` | POST | 洞察保存（Sprint 2） |
 
 ## Firestore スキーマ
 
-- **Collection**: `conversations`
-- **Document**: ConversationSchema に準拠
+- **Collection**: `conversations` — ConversationSchema に準拠
+- **Collection**: `insights` — InsightSchema に準拠（Sprint 2追加、conversationIdで参照）
 
 ## Gitブランチ運用
 

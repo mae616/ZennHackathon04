@@ -3,195 +3,157 @@
 ## 責務
 
 - 対話の一覧・詳細表示（管理画面UI）
-- REST APIエンドポイントの提供（対話の保存・取得）
+- REST APIエンドポイントの提供（対話の保存・取得・更新）
+- Geminiとの思考再開チャット（SSEストリーミング）
+- 洞察の保存・一覧表示
+- メモのOptimistic Update編集
 - Firestoreとの通信
+- Vertex AI (Gemini) との通信
 
 ## ディレクトリ構造
 
 ```
 apps/web/src/
 ├── app/                          # Next.js App Router
-│   ├── layout.tsx               # ルートレイアウト
-│   ├── page.tsx                 # 対話一覧ページ
-│   ├── globals.css              # グローバルスタイル
+│   ├── layout.tsx               # ルートレイアウト（Sidebar + main）
+│   ├── page.tsx                 # 対話一覧ページ [Server]
+│   ├── globals.css              # グローバルスタイル（Tailwind + デザイントークン）
 │   ├── conversations/
 │   │   └── [id]/
-│   │       ├── page.tsx         # 対話詳細ページ
+│   │       ├── page.tsx         # 対話詳細ページ [Server]
 │   │       └── not-found.tsx    # 404ページ
 │   └── api/
-│       └── conversations/
-│           ├── route.ts         # POST, GET
-│           └── [id]/
-│               └── route.ts     # GET :id
+│       ├── conversations/
+│       │   ├── route.ts         # POST, GET
+│       │   └── [id]/
+│       │       ├── route.ts     # GET, PATCH
+│       │       └── insights/
+│       │           └── route.ts # GET
+│       ├── chat/
+│       │   └── route.ts         # POST (SSE Streaming)
+│       └── insights/
+│           └── route.ts         # POST
 │
 ├── components/
-│   ├── layout/                  # レイアウトコンポーネント
-│   │   ├── Header.tsx
-│   │   ├── Sidebar.tsx
+│   ├── layout/
+│   │   ├── Header.tsx           # ページヘッダー [Server]
+│   │   ├── Sidebar.tsx          # ナビゲーション [Client]
 │   │   └── index.ts
-│   └── conversations/           # 対話表示コンポーネント
-│       ├── ConversationList.tsx
-│       ├── ConversationCard.tsx
-│       ├── ConversationHeader.tsx
-│       ├── ChatHistorySection.tsx
-│       ├── MessageList.tsx
-│       ├── MessageBubble.tsx
-│       ├── SourceBadge.tsx
-│       ├── InsightSection.tsx
-│       ├── NoteSection.tsx
-│       ├── ThinkResumePanel.tsx
+│   └── conversations/
+│       ├── ConversationList.tsx          # 対話一覧 [Server]
+│       ├── ConversationCard.tsx          # 対話カード [Server]
+│       ├── ConversationHeader.tsx        # 詳細ヘッダー [Server]
+│       ├── ConversationDetailContent.tsx # 詳細ラッパー [Client]
+│       ├── ChatHistorySection.tsx        # 対話履歴 [Server]
+│       ├── MessageList.tsx              # メッセージリスト [Server]
+│       ├── MessageBubble.tsx            # メッセージバブル [Server]
+│       ├── SourceBadge.tsx              # ソースバッジ [Server]
+│       ├── NoteSection.tsx              # メモ編集 [Client] ★Sprint 2
+│       ├── InsightSection.tsx           # 洞察表示 [Client] ★Sprint 2
+│       ├── ThinkResumePanel.tsx         # Gemini対話 [Client] ★Sprint 2
 │       └── index.ts
 │
 └── lib/
-    ├── api.ts                   # APIクライアント
+    ├── api.ts                   # Server Component用 fetch
     ├── api/
-    │   └── errors.ts            # エラーハンドリング
+    │   └── errors.ts            # エラーハンドリング共通化 ★Sprint 2改善
     ├── firebase/
     │   └── admin.ts             # Firebase Admin SDK
+    ├── vertex/                  # ★Sprint 2 追加
+    │   ├── gemini.ts            # Gemini API連携（ストリーミング）
+    │   └── types.ts             # Vertex AI型定義
+    ├── hooks/                   # ★Sprint 2 追加
+    │   └── useUnsavedChangesWarning.ts
     └── utils/
         └── date.ts              # 日付ユーティリティ
 ```
 
-## 公開インターフェース
+## Server Component vs Client Component
 
-### API Routes
+| コンポーネント | 種別 | 理由 |
+|--------------|------|------|
+| page.tsx (一覧) | Server | データフェッチのみ |
+| page.tsx (詳細) | Server | データフェッチのみ |
+| Header | Server | 静的表示 |
+| ConversationList / Card | Server | 静的表示 |
+| ChatHistorySection / MessageBubble | Server | 静的表示 |
+| Sidebar | **Client** | `usePathname()` でアクティブ判定 |
+| ConversationDetailContent | **Client** | 洞察のfetch・状態管理 |
+| NoteSection | **Client** | Optimistic Update、編集状態管理 |
+| ThinkResumePanel | **Client** | SSEストリーミング、チャット状態管理 |
+| InsightSection | **Client** | 動的データ表示 |
 
-| エンドポイント | メソッド | ハンドラ |
-|---------------|---------|---------|
-| `/api/conversations` | POST | `route.ts#POST` |
-| `/api/conversations` | GET | `route.ts#GET` |
-| `/api/conversations/:id` | GET | `[id]/route.ts#GET` |
+## 主要な設計パターン
 
-### クライアントAPI
+※ データフロー（シーケンス図）は [architecture.md](../architecture.md#データフロー) を参照
+
+### 1. Optimistic Update（NoteSection）
+
+```
+ユーザー操作 → ① UI更新(setCurrentNote) → ② API呼び出し(バックグラウンド)
+  ├─ 成功: UIは既に更新済み
+  └─ 失敗: ロールバック(setCurrentNote(previousNote)) + エラー表示
+```
+
+### 2. SSE ストリーミング（ThinkResumePanel ↔ /api/chat）
+
+```
+クライアント: fetch POST → ReadableStream → チャンク解析 → 段階的UI更新
+サーバー: Gemini streamChat → 各チャンク → data: {"text": "..."} → data: [DONE]
+```
+
+### 3. ナビゲーションガード（useUnsavedChangesWarning）
+
+3層のガードで未保存変更を保護:
+1. `beforeunload`: ブラウザ離脱
+2. クリックキャプチャ（`<a>`要素）: クライアントサイドナビゲーション
+3. `popstate` + `history.pushState`: ブラウザ戻る/進むボタン
+
+### 4. エラーハンドリング共通化（errors.ts）
 
 ```typescript
-// lib/api.ts
-export async function fetchConversations(): Promise<Conversation[]>
-export async function fetchConversation(id: string): Promise<Conversation | null>
+createClientErrorResponse(status, code, message, details?) // 4xx
+createServerErrorResponse(error, logPrefix)                 // 5xx（詳細隠蔽）
 ```
 
-## 依存関係図
+## カスタムフック
 
-```mermaid
-graph TD
-    subgraph "Pages"
-        P1[page.tsx<br/>一覧]
-        P2["conversations/[id]/page.tsx<br/>詳細"]
-    end
+| フック | ファイル | 責務 |
+|-------|---------|------|
+| `useUnsavedChangesWarning` | `lib/hooks/useUnsavedChangesWarning.ts` | 編集中のページ離脱防止（3層ガード） |
 
-    subgraph "Components"
-        C1[ConversationList]
-        C2[ConversationCard]
-        C3[ConversationHeader]
-        C4[ChatHistorySection]
-        C5[MessageBubble]
-    end
+## デザイントークン（globals.css）
 
-    subgraph "Lib"
-        L1[api.ts]
-        L2[firebase/admin.ts]
-        L3[api/errors.ts]
-        L4[utils/date.ts]
-    end
-
-    subgraph "External"
-        E1[packages/shared]
-        E2[(Firestore)]
-    end
-
-    P1 --> L1
-    P1 --> C1
-    C1 --> C2
-    C2 --> L4
-
-    P2 --> L1
-    P2 --> C3
-    P2 --> C4
-    C4 --> C5
-    C3 --> L4
-
-    L1 --> E1
-    L2 --> E2
-    L3 --> E1
+```css
+:root {
+  --bg-page: #FFFFFF;
+  --bg-surface: #FAFAFA;
+  --bg-card: #FFFFFF;
+  --black-primary: #0D0D0D;
+  --gray-700: #7A7A7A;
+  --gray-400: #B0B0B0;
+  --border: #E8E8E8;
+  --red-primary: #E42313;  /* アクセントカラー */
+  --green-success: #22C55E;
+}
 ```
 
-## 主要な処理フロー
+## JSDoc充足状況
 
-### 対話一覧表示
+| ファイル | 状態 | 備考 |
+|---------|------|------|
+| `NoteSection.tsx` | ✅ 充実 | `@fileoverview` + コンポーネントJSDoc |
+| `ThinkResumePanel.tsx` | ✅ 充実 | `@fileoverview` + 内部コンポーネント含む |
+| `InsightSection.tsx` | ✅ 充実 | `@fileoverview` + `InsightCard`含む |
+| `ConversationDetailContent.tsx` | ✅ 充実 | `@fileoverview` + メイン関数 |
+| `useUnsavedChangesWarning.ts` | ✅ 充実 | `@fileoverview` + `@remarks` 付き |
+| `errors.ts` | ✅ 充実 | 全4関数にJSDoc |
+| `vertex/gemini.ts` | ✅ 充実 | `@remarks` + `@example` 付き |
+| `vertex/types.ts` | ✅ 充実 | インターフェース・関数にJSDoc |
+| `api/chat/route.ts` | ⚠️ 部分的 | `@fileoverview` あり、`POST`関数の `@param`/`@returns` 詳細不足 |
+| `api/insights/route.ts` | ⚠️ 部分的 | `@fileoverview` あり、`POST`関数の `@param`/`@returns` 詳細不足 |
 
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant P as page.tsx
-    participant A as api.ts
-    participant R as route.ts
-    participant F as Firestore
-
-    B->>P: ページアクセス
-    P->>A: fetchConversations()
-    A->>R: GET /api/conversations
-    R->>F: query()
-    F-->>R: Documents
-    R-->>A: JSON Response
-    A-->>P: Conversation[]
-    P->>P: ConversationList描画
-    P-->>B: HTML
-```
-
-### 対話詳細表示
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant P as "[id]/page.tsx"
-    participant A as api.ts
-    participant R as "[id]/route.ts"
-    participant F as Firestore
-
-    B->>P: /conversations/{id}
-    P->>A: fetchConversation(id)
-    A->>R: GET /api/conversations/{id}
-    R->>R: isValidDocumentId(id)
-    alt IDが不正
-        R-->>A: 400 INVALID_ID_FORMAT
-        A-->>P: null
-        P-->>B: not-found.tsx
-    else IDが正常
-        R->>F: doc(id).get()
-        alt 存在しない
-            F-->>R: !exists
-            R-->>A: 404 NOT_FOUND
-            A-->>P: null
-            P-->>B: not-found.tsx
-        else 存在する
-            F-->>R: Document
-            R-->>A: 200 Conversation
-            A-->>P: Conversation
-            P->>P: 詳細コンポーネント描画
-            P-->>B: HTML
-        end
-    end
-```
-
-## 設計意図
-
-### Server Components の活用
-
-- `page.tsx` はServer Componentとして実装
-- データフェッチはサーバーサイドで完結（SEO、初期表示速度向上）
-- インタラクティブなUIは将来Client Componentに分離予定
-
-### コンポーネント分割方針
-
-- **単一責務**: 各コンポーネントは1つの役割に集中
-- **再利用性**: `SourceBadge`, `MessageBubble` は複数箇所で使用
-- **テスト容易性**: Propsベースでデータ注入
-
-### エラーハンドリング
-
-- `createServerErrorResponse()` でエラー処理を共通化
-- Firebase未設定エラーを専用コードで識別
-- 内部エラー詳細はログのみ、クライアントには汎用メッセージ
+**TODO**: `api/chat/route.ts` と `api/insights/route.ts` の `POST` 関数に `@param`/`@returns` 詳細を追加
 
 ## 次に読むべきドキュメント
 

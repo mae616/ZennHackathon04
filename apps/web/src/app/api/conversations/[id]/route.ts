@@ -5,48 +5,28 @@
  * - 指定されたIDの対話を取得する
  * - IDフォーマット検証を行う
  * - 存在しない場合は404エラーを返す
+ *
+ * PATCH /api/conversations/:id
+ * - 指定されたIDの対話を部分更新する
+ * - note フィールドの更新に対応
+ * - updatedAt を自動更新
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  type ApiError,
   type ApiFailure,
   type GetConversationResponse,
   type Conversation,
+  type UpdateConversationResponse,
+  UpdateConversationRequestSchema,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /** ルートパラメータの型定義 */
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
-
-/**
- * Firestore Document IDのフォーマットを検証する
- * - 空文字でない
- * - 1〜1500バイト以内
- * - スラッシュ（/）を含まない
- * - 単一のピリオド（.）またはダブルピリオド（..）でない
- * - __.*__の形式でない（予約済み）
- *
- * @param id - 検証対象のID
- * @returns 有効なIDの場合true
- */
-function isValidDocumentId(id: string): boolean {
-  if (!id || id.length === 0 || id.length > 1500) {
-    return false;
-  }
-  if (id.includes('/')) {
-    return false;
-  }
-  if (id === '.' || id === '..') {
-    return false;
-  }
-  if (/^__.*__$/.test(id)) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * 指定IDの対話を取得する
@@ -65,13 +45,7 @@ export async function GET(
 
     // IDフォーマット検証
     if (!isValidDocumentId(id)) {
-      const error: ApiError = {
-        code: 'INVALID_ID_FORMAT',
-        message: 'IDのフォーマットが不正です',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
     }
 
     const db = getDb();
@@ -80,13 +54,7 @@ export async function GET(
 
     // ドキュメントが存在しない場合
     if (!doc.exists) {
-      const error: ApiError = {
-        code: 'NOT_FOUND',
-        message: '指定された対話が見つかりません',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 404,
-      });
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
     // Conversation型に変換して返す
@@ -104,5 +72,79 @@ export async function GET(
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     return createServerErrorResponse(error, 'GET /api/conversations/:id');
+  }
+}
+
+/**
+ * 対話を部分更新する（メモの編集）
+ *
+ * @param request - PATCHリクエスト（body: { note?: string }）
+ * @param params - ルートパラメータ（id）
+ * @returns 成功時: { success: true, data: { updatedAt } }
+ * @returns 失敗時: { success: false, error: { code, message } }
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<UpdateConversationResponse | ApiFailure>> {
+  try {
+    const { id } = await params;
+
+    // IDフォーマット検証
+    if (!isValidDocumentId(id)) {
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    }
+
+    // リクエストボディのパース（JSON構文エラーを個別ハンドリング）
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
+    }
+
+    const parseResult = UpdateConversationRequestSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return createClientErrorResponse(
+        400,
+        'INVALID_REQUEST_BODY',
+        'リクエストボディが不正です',
+        { errors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
+      );
+    }
+
+    const { note } = parseResult.data;
+
+    const db = getDb();
+    const docRef = db.collection('conversations').doc(id);
+    const doc = await docRef.get();
+
+    // ドキュメントが存在しない場合
+    if (!doc.exists) {
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
+    }
+
+    // 更新データの構築（undefinedフィールドは除外）
+    const updatedAt = new Date().toISOString();
+    const updateData: Record<string, unknown> = { updatedAt };
+
+    // note が明示的に渡された場合のみ更新
+    // NOTE: undefined と空文字を区別。空文字はメモ削除として扱う
+    if (note !== undefined) {
+      updateData.note = note;
+    }
+
+    // Firestore に更新を適用
+    await docRef.update(updateData);
+
+    const response: UpdateConversationResponse = {
+      success: true,
+      data: { updatedAt },
+    };
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    return createServerErrorResponse(error, 'PATCH /api/conversations/:id');
   }
 }

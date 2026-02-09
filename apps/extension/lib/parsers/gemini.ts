@@ -53,19 +53,21 @@ function generateId(): string {
 
 /**
  * 要素からテキストコンテンツを抽出する
- * 余分な空白を正規化し、トリミングを行う
+ * innerTextを使用してブロック要素の改行を保持しつつ、余分な空白を正規化する
  *
  * @param element - テキスト抽出対象の要素
- * @returns 正規化されたテキスト、またはnull
+ * @returns 改行を保持した正規化テキスト、またはnull
  */
 function extractTextContent(element: Element | null): string | null {
   if (!element) return null;
 
-  // textContentを使用（全テキストを取得）
-  const text = element.textContent || '';
+  // innerTextを使用（ブロック要素の境界を改行として取得）
+  const text = (element as HTMLElement).innerText || element.textContent || '';
 
-  // 連続する空白を単一スペースに正規化
-  return text.replace(/\s+/g, ' ').trim() || null;
+  return text
+    .replace(/[^\S\n]+/g, ' ')   // スペース・タブを正規化（改行は保持）
+    .replace(/\n{3,}/g, '\n\n')  // 3行以上の連続空行を2行に圧縮
+    .trim() || null;
 }
 
 /**
