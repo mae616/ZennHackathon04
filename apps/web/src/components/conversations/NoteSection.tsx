@@ -8,8 +8,8 @@
  */
 'use client';
 
-import { useState, useCallback } from 'react';
-import { FileText, Pencil, Plus, X, Loader2, Check } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { FileText, Pencil, Plus, X, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatAppendHeader } from '@/lib/utils/date';
 import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning';
 
@@ -23,6 +23,9 @@ interface NoteSectionProps {
 /** 編集モードの種類 */
 type EditMode = 'none' | 'edit' | 'append';
 
+/** 折りたたみ時の最大高さ（px） */
+const NOTE_COLLAPSED_MAX_HEIGHT = 160;
+
 /**
  * メモセクションコンポーネント
  *
@@ -35,9 +38,19 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
+  const [needsNoteCollapse, setNeedsNoteCollapse] = useState(false);
+  const noteContentRef = useRef<HTMLDivElement>(null);
 
   // 編集中のページ離脱警告（ブラウザ離脱 + クライアントサイドナビゲーション両対応）
   useUnsavedChangesWarning(editMode !== 'none');
+
+  /** メモが折りたたみ閾値を超えるか判定 */
+  useEffect(() => {
+    if (noteContentRef.current && editMode === 'none') {
+      setNeedsNoteCollapse(noteContentRef.current.scrollHeight > NOTE_COLLAPSED_MAX_HEIGHT);
+    }
+  }, [currentNote, editMode]);
 
   /**
    * 編集モードを開始する
@@ -153,6 +166,20 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
                 保存中...
               </span>
             )}
+            {/* メモ全体編集ボタン */}
+            <button
+              type="button"
+              onClick={startEdit}
+              className="flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors hover:opacity-80"
+              style={{
+                border: '1px solid var(--border)',
+                color: 'var(--gray-700)',
+              }}
+              title="メモ全体を編集"
+            >
+              <Pencil className="h-3 w-3" />
+              メモ編集
+            </button>
             {/* 追記ボタン */}
             <button
               type="button"
@@ -166,20 +193,6 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             >
               <Plus className="h-3 w-3" />
               追記
-            </button>
-            {/* 編集ボタン */}
-            <button
-              type="button"
-              onClick={startEdit}
-              className="flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors hover:opacity-80"
-              style={{
-                border: '1px solid var(--border)',
-                color: 'var(--gray-700)',
-              }}
-              title="メモを編集"
-            >
-              <Pencil className="h-3 w-3" />
-              編集
             </button>
           </div>
         )}
@@ -198,16 +211,34 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
         </div>
       )}
 
-      {/* 表示モード */}
+      {/* 表示モード（折りたたみ対応） */}
       {editMode === 'none' && (
         <>
           {currentNote ? (
-            <p
-              className="whitespace-pre-wrap text-sm"
-              style={{ color: 'var(--gray-700)' }}
-            >
-              {currentNote}
-            </p>
+            <div className="relative">
+              <div
+                ref={noteContentRef}
+                className="overflow-hidden transition-[max-height] duration-300"
+                style={{
+                  maxHeight: !isNoteExpanded && needsNoteCollapse ? `${NOTE_COLLAPSED_MAX_HEIGHT}px` : undefined,
+                }}
+              >
+                <p
+                  className="whitespace-pre-wrap text-sm"
+                  style={{ color: 'var(--gray-700)' }}
+                >
+                  {currentNote}
+                </p>
+              </div>
+              {needsNoteCollapse && !isNoteExpanded && (
+                <div
+                  className="pointer-events-none absolute bottom-0 left-0 right-0 h-12"
+                  style={{
+                    background: 'linear-gradient(to bottom, transparent, var(--bg-surface, white))',
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <p
               className="text-sm italic"
@@ -215,6 +246,26 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             >
               メモはありません。「追記」ボタンでメモを追加できます。
             </p>
+          )}
+          {needsNoteCollapse && (
+            <button
+              type="button"
+              onClick={() => setIsNoteExpanded(!isNoteExpanded)}
+              className="flex items-center gap-1 self-center text-xs transition-opacity hover:opacity-70"
+              style={{ color: 'var(--gray-500)' }}
+            >
+              {isNoteExpanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3" />
+                  折りたたむ
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" />
+                  もっと表示
+                </>
+              )}
+            </button>
           )}
         </>
       )}
@@ -272,28 +323,14 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
       {/* 追記モード */}
       {editMode === 'append' && (
         <div className="flex flex-col gap-3">
-          {/* 既存メモ（読み取り専用で表示） */}
+          {/* 既存メモ（通常テキストとして表示） */}
           {currentNote && (
-            <div
-              className="rounded-sm border px-3 py-2"
-              style={{
-                borderColor: 'var(--border)',
-                backgroundColor: 'var(--bg-page)',
-              }}
+            <p
+              className="whitespace-pre-wrap text-sm"
+              style={{ color: 'var(--gray-700)' }}
             >
-              <p
-                className="mb-2 text-xs font-medium"
-                style={{ color: 'var(--gray-500)' }}
-              >
-                既存のメモ
-              </p>
-              <p
-                className="whitespace-pre-wrap text-sm"
-                style={{ color: 'var(--gray-700)' }}
-              >
-                {currentNote}
-              </p>
-            </div>
+              {currentNote}
+            </p>
           )}
 
           {/* 追記入力エリア */}

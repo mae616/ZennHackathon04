@@ -11,7 +11,6 @@
 import { notFound } from 'next/navigation';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { fetchConversation } from '@/lib/api';
-import { ConversationHeader } from '@/components/conversations/ConversationHeader';
 import { ConversationDetailContent } from '@/components/conversations/ConversationDetailContent';
 
 interface Props {
@@ -47,13 +46,10 @@ export default async function ConversationDetailPage({ params }: Props) {
 
   return (
     <div
-      className="flex h-full flex-col gap-6 px-10 py-8"
+      className="flex h-full flex-col px-10 py-8"
       style={{ backgroundColor: 'var(--bg-page)' }}
     >
-      {/* ヘッダー: 戻るリンク、タイトル、ソースバッジ、タグ */}
-      <ConversationHeader conversation={conversation} />
-
-      {/* メインコンテンツ: 左カラム（履歴・メモ・洞察）+ 右カラム（思考再開） */}
+      {/* メインコンテンツ: 左カラム（ヘッダー・履歴・メモ・洞察）+ 右カラム（思考再開） */}
       <ConversationDetailContent conversation={conversation} />
     </div>
   );
