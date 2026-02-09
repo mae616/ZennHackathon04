@@ -85,8 +85,10 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
       newNote = currentNote ? `${currentNote}${appendContent}` : `${header}\n${editValue}`;
     }
 
-    // Optimistic Update: UI を先に更新する
+    // Optimistic Update: ロールバック用に現在の状態を明示的にバックアップ
     const previousNote = currentNote;
+    const previousEditMode = editMode;
+    const previousEditValue = editValue;
     setCurrentNote(newNote);
     setEditMode('none');
     setEditValue('');
@@ -107,8 +109,8 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
     } catch (err) {
       // エラー時: ロールバック（UI状態も編集モードに戻す）
       setCurrentNote(previousNote);
-      setEditMode(editMode);
-      setEditValue(editValue);
+      setEditMode(previousEditMode);
+      setEditValue(previousEditValue);
       setError(err instanceof Error ? err.message : '保存に失敗しました');
     } finally {
       setIsSaving(false);

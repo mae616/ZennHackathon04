@@ -196,7 +196,8 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       },
     ]);
     setIsInitialized(true);
-  }, [conversation.id, conversation.messages, conversation.title, conversation.note, isInitialized]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isInitializedガードで再実行を防止、messages参照型の無限ループ回避のためlengthのみ指定
+  }, [conversation.id, conversation.messages.length, conversation.title, conversation.note, isInitialized]);
 
   /**
    * メッセージが追加されたらスクロール
@@ -431,7 +432,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
         {messages.map((message) => {
           // greeting以外のmodelメッセージに保存ボタンを表示
           const showSaveInsight =
-            message.role === 'model' && message.id !== 'greeting';
+            message.role === 'model' && message.id !== GREETING_MESSAGE_ID;
 
           return (
             <ChatBubble

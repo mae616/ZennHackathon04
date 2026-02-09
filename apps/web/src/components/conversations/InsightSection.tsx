@@ -98,6 +98,8 @@ function InsightCard({ insight }: { insight: Insight }) {
  * @param conversationId - 対話ID
  * @param insights - 洞察データ配列
  * @param isLoading - ローディング状態
+ * @param hasError - 取得エラー発生有無
+ * @param onRetry - リトライコールバック
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 将来の洞察削除機能等で使用予定
 export function InsightSection({ conversationId, insights, isLoading, hasError, onRetry }: InsightSectionProps) {

@@ -48,7 +48,11 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
         const data = await response.json();
         if (data.success) {
           setInsights(data.data.insights);
+        } else {
+          setInsightsError(true);
         }
+      } else {
+        setInsightsError(true);
       }
     } catch {
       setInsightsError(true);

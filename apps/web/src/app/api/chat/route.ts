@@ -19,6 +19,7 @@ import {
   type ThinkResumeContext,
 } from '@/lib/vertex/gemini';
 import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /**
  * チャットリクエストのスキーマ
@@ -26,8 +27,8 @@ import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/
 const ChatRequestSchema = z.object({
   /** 対話ID（コンテキスト取得用） */
   conversationId: z.string().min(1),
-  /** ユーザーのメッセージ */
-  userMessage: z.string().min(1),
+  /** ユーザーのメッセージ（メモリ消費防止のため上限設定） */
+  userMessage: z.string().min(1).max(10000),
   /** これまでのGeminiとのチャット履歴 */
   chatHistory: z
     .array(
@@ -84,6 +85,11 @@ export async function POST(
     }
 
     const { conversationId, userMessage, chatHistory } = parseResult.data;
+
+    // conversationIdのフォーマット検証（Firestore予約パターン等を排除）
+    if (!isValidDocumentId(conversationId)) {
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    }
 
     // 対話データを取得
     const db = getDb();

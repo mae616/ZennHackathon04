@@ -13,7 +13,6 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  type ApiError,
   type ApiFailure,
   type GetConversationResponse,
   type Conversation,
@@ -46,13 +45,7 @@ export async function GET(
 
     // IDフォーマット検証
     if (!isValidDocumentId(id)) {
-      const error: ApiError = {
-        code: 'INVALID_ID_FORMAT',
-        message: 'IDのフォーマットが不正です',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
     }
 
     const db = getDb();
@@ -61,13 +54,7 @@ export async function GET(
 
     // ドキュメントが存在しない場合
     if (!doc.exists) {
-      const error: ApiError = {
-        code: 'NOT_FOUND',
-        message: '指定された対話が見つかりません',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 404,
-      });
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
     // Conversation型に変換して返す
@@ -105,13 +92,7 @@ export async function PATCH(
 
     // IDフォーマット検証
     if (!isValidDocumentId(id)) {
-      const error: ApiError = {
-        code: 'INVALID_ID_FORMAT',
-        message: 'IDのフォーマットが不正です',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
     }
 
     // リクエストボディのパース（JSON構文エラーを個別ハンドリング）
@@ -125,14 +106,12 @@ export async function PATCH(
     const parseResult = UpdateConversationRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
-      const error: ApiError = {
-        code: 'INVALID_REQUEST_BODY',
-        message: 'リクエストボディが不正です',
-        details: { errors: parseResult.error.flatten().fieldErrors },
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(
+        400,
+        'INVALID_REQUEST_BODY',
+        'リクエストボディが不正です',
+        { errors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
+      );
     }
 
     const { note } = parseResult.data;
@@ -143,13 +122,7 @@ export async function PATCH(
 
     // ドキュメントが存在しない場合
     if (!doc.exists) {
-      const error: ApiError = {
-        code: 'NOT_FOUND',
-        message: '指定された対話が見つかりません',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 404,
-      });
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
     }
 
     // 更新データの構築（undefinedフィールドは除外）
