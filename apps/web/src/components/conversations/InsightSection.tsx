@@ -166,7 +166,7 @@ export function InsightSection({ conversationId, insights, isLoading, hasError, 
         </div>
       )}
 
-      {/* 洞察リスト */}
+      {/* 洞察リスト（エラー時は空リスト表示を抑制し、エラーバナーのみ表示） */}
       {isLoading ? (
         <div
           className="flex items-center justify-center gap-2 rounded-sm p-4"
@@ -178,7 +178,7 @@ export function InsightSection({ conversationId, insights, isLoading, hasError, 
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-sm">読み込み中...</span>
         </div>
-      ) : insights.length === 0 ? (
+      ) : !hasError && insights.length === 0 ? (
         <div
           className="rounded-sm p-4 text-center text-sm"
           style={{

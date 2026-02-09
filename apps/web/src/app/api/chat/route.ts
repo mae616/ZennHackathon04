@@ -29,14 +29,15 @@ const ChatRequestSchema = z.object({
   conversationId: z.string().min(1),
   /** ユーザーのメッセージ（メモリ消費防止のため上限設定） */
   userMessage: z.string().min(1).max(10000),
-  /** これまでのGeminiとのチャット履歴 */
+  /** これまでのGeminiとのチャット履歴（メモリ・トークン消費防止のため上限設定） */
   chatHistory: z
     .array(
       z.object({
         role: z.enum(['user', 'model']),
-        content: z.string(),
+        content: z.string().max(10000),
       })
     )
+    .max(50)
     .default([]),
 });
 

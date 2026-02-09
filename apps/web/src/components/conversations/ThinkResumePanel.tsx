@@ -196,7 +196,10 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       },
     ]);
     setIsInitialized(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- isInitializedガードで再実行を防止、messages参照型の無限ループ回避のためlengthのみ指定
+  // 初回マウント時の初期化専用。isInitializedガードで再実行を防止。
+  // conversation.note はSSR時の初期値のみ使用し、noteの編集による再実行は isInitialized で抑制される。
+  // messages は参照型のため length のみ指定し、無限ループを回避。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id, conversation.messages.length, conversation.title, conversation.note, isInitialized]);
 
   /**
