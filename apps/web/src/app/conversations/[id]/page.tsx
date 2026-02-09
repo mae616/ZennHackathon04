@@ -2,7 +2,7 @@
  * @fileoverview 対話詳細ページ
  *
  * 保存した対話の詳細（メッセージ履歴・メモ・洞察）を表示する。
- * Sprint 2で思考再開機能（Gemini連携）を追加予定。
+ * Sprint 2で思考再開機能（Gemini連携）を追加。
  *
  * RDD参照:
  * - doc/input/rdd.md §機能要件 [P0] 対話一覧・詳細表示

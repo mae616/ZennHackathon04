@@ -105,8 +105,10 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
         throw new Error(result.error?.message ?? '保存に失敗しました');
       }
     } catch (err) {
-      // エラー時: ロールバック
+      // エラー時: ロールバック（UI状態も編集モードに戻す）
       setCurrentNote(previousNote);
+      setEditMode(editMode);
+      setEditValue(editValue);
       setError(err instanceof Error ? err.message : '保存に失敗しました');
     } finally {
       setIsSaving(false);
@@ -223,7 +225,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
             onChange={(e) => setEditValue(e.target.value)}
             placeholder="メモを入力..."
             rows={6}
-            className="w-full resize-none rounded-sm border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            className="w-full resize-none rounded-sm border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
             style={{
               borderColor: 'var(--border)',
               color: 'var(--gray-700)',
@@ -305,7 +307,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
               onChange={(e) => setEditValue(e.target.value)}
               placeholder="追記する内容を入力..."
               rows={4}
-              className="w-full resize-none rounded-sm border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              className="w-full resize-none rounded-sm border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40"
               style={{
                 borderColor: 'var(--border)',
                 color: 'var(--gray-700)',

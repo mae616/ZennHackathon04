@@ -33,6 +33,8 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
   const [insights, setInsights] = useState<Insight[]>([]);
   /** 洞察ローディング状態 */
   const [isInsightsLoading, setIsInsightsLoading] = useState(true);
+  /** 洞察取得エラー */
+  const [insightsError, setInsightsError] = useState(false);
 
   /**
    * 洞察一覧をAPIから取得する
@@ -40,6 +42,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
   const fetchInsights = useCallback(async () => {
     try {
       setIsInsightsLoading(true);
+      setInsightsError(false);
       const response = await fetch(`/api/conversations/${conversation.id}/insights`);
       if (response.ok) {
         const data = await response.json();
@@ -48,8 +51,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
         }
       }
     } catch {
-      // 取得エラーは静かに失敗（InsightSectionで空状態表示）
-      console.error('洞察の取得に失敗しました');
+      setInsightsError(true);
     } finally {
       setIsInsightsLoading(false);
     }
@@ -82,6 +84,8 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
           conversationId={conversation.id}
           insights={insights}
           isLoading={isInsightsLoading}
+          hasError={insightsError}
+          onRetry={fetchInsights}
         />
       </div>
 

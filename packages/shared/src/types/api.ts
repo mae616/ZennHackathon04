@@ -86,7 +86,10 @@ export type GetConversationResponse = z.infer<typeof GetConversationResponseSche
 export const UpdateConversationRequestSchema = z.object({
   /** 更新するメモ内容 */
   note: z.string().optional(),
-});
+}).refine(
+  (data) => Object.values(data).some((v) => v !== undefined),
+  { message: '少なくとも1つのフィールドを指定してください' }
+);
 export type UpdateConversationRequest = z.infer<typeof UpdateConversationRequestSchema>;
 
 /**

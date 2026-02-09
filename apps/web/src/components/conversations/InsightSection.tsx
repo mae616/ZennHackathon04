@@ -10,7 +10,7 @@
 'use client';
 
 import ReactMarkdown from 'react-markdown';
-import { Lightbulb, Loader2, MessageSquare, Sparkles } from 'lucide-react';
+import { Lightbulb, Loader2, MessageSquare, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
 import type { Insight } from '@zenn-hackathon04/shared';
 
 interface InsightSectionProps {
@@ -20,6 +20,10 @@ interface InsightSectionProps {
   insights: Insight[];
   /** ローディング状態 */
   isLoading: boolean;
+  /** 取得エラー発生有無 */
+  hasError?: boolean;
+  /** リトライコールバック */
+  onRetry?: () => void;
 }
 
 /**
@@ -96,7 +100,7 @@ function InsightCard({ insight }: { insight: Insight }) {
  * @param isLoading - ローディング状態
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 将来の洞察削除機能等で使用予定
-export function InsightSection({ conversationId, insights, isLoading }: InsightSectionProps) {
+export function InsightSection({ conversationId, insights, isLoading, hasError, onRetry }: InsightSectionProps) {
   return (
     <section
       className="flex flex-col gap-4 rounded-sm p-6"
@@ -130,6 +134,35 @@ export function InsightSection({ conversationId, insights, isLoading }: InsightS
           {isLoading ? '...' : `${insights.length}件`}
         </span>
       </div>
+
+      {/* エラー表示 */}
+      {hasError && (
+        <div
+          className="flex items-center justify-between rounded-sm p-4"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid var(--red-primary)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" style={{ color: 'var(--red-primary)' }} />
+            <span className="text-sm" style={{ color: 'var(--red-primary)' }}>
+              洞察の取得に失敗しました
+            </span>
+          </div>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:opacity-70"
+              style={{ color: 'var(--red-primary)' }}
+            >
+              <RotateCcw className="h-3 w-3" />
+              再試行
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 洞察リスト */}
       {isLoading ? (

@@ -12,7 +12,7 @@
  */
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('ja-JP', {
+  return date.toLocaleString('ja-JP', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -29,7 +29,7 @@ export function formatDate(dateString: string): string {
  */
 export function formatAppendHeader(): string {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('ja-JP', {
+  const dateStr = now.toLocaleString('ja-JP', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
