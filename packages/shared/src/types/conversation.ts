@@ -20,7 +20,7 @@ export type MessageRole = z.infer<typeof MessageRoleSchema>;
  */
 export const MessageSchema = z.object({
   /** メッセージの一意識別子 */
-  id: z.string(),
+  id: z.string().min(1),
   /** メッセージの役割 */
   role: MessageRoleSchema,
   /** メッセージの内容 */
@@ -48,7 +48,7 @@ export type SourcePlatform = z.infer<typeof SourcePlatformSchema>;
  */
 export const ConversationSchema = z.object({
   /** 対話の一意識別子 */
-  id: z.string(),
+  id: z.string().min(1),
   /** 対話のタイトル（ユーザーが設定または自動生成） */
   title: z.string(),
   /** 対話のソースプラットフォーム */

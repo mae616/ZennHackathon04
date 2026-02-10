@@ -1,23 +1,23 @@
 /**
- * 対話APIエンドポイント
+ * スペースAPIエンドポイント
  *
- * POST /api/conversations
- * - 拡張機能からキャプチャした対話をFirestoreに保存する
+ * POST /api/spaces
+ * - スペースをFirestoreに保存する
  * - Zodでリクエストバリデーションを実行
  * - 成功時はドキュメントIDと作成日時を返す
  *
- * GET /api/conversations
- * - Firestoreから対話一覧を取得する
+ * GET /api/spaces
+ * - Firestoreからスペース一覧を取得する
  * - updatedAt降順でソート
  * - ページネーション対応（cursor/PAGE_SIZE）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  SaveConversationRequestSchema,
-  type SaveConversationResponse,
+  SaveSpaceRequestSchema,
+  type SaveSpaceResponse,
   type ApiFailure,
-  type ListConversationsResponse,
-  type Conversation,
+  type ListSpacesResponse,
+  type Space,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
 import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
@@ -27,15 +27,15 @@ import { isValidDocumentId } from '@/lib/api/validation';
 const PAGE_SIZE = 20;
 
 /**
- * 対話を保存する
+ * スペースを作成する
  *
- * @param request - POSTリクエスト（SaveConversationRequest形式のJSON）
+ * @param request - POSTリクエスト（SaveSpaceRequest形式のJSON）
  * @returns 成功時: { success: true, data: { id, createdAt } }
  * @returns 失敗時: { success: false, error: { code, message, details? } }
  */
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<SaveConversationResponse | ApiFailure>> {
+): Promise<NextResponse<SaveSpaceResponse | ApiFailure>> {
   // リクエストボディをパース
   let body: unknown;
   try {
@@ -46,7 +46,7 @@ export async function POST(
 
   try {
     // Zodバリデーション
-    const parseResult = SaveConversationRequestSchema.safeParse(body);
+    const parseResult = SaveSpaceRequestSchema.safeParse(body);
     if (!parseResult.success) {
       return createClientErrorResponse(
         400,
@@ -59,17 +59,32 @@ export async function POST(
     const data = parseResult.data;
     const now = new Date().toISOString();
 
-    // Firestoreに保存
     const db = getDb();
-    const docRef = await db.collection('conversations').add({
+
+    // conversationIds の存在チェック（指定されている場合のみ）
+    if (data.conversationIds.length > 0) {
+      const refs = data.conversationIds.map(id => db.collection('conversations').doc(id));
+      const docs = await db.getAll(...refs);
+      const missingIds = data.conversationIds.filter((_, i) => !docs[i].exists);
+      if (missingIds.length > 0) {
+        return createClientErrorResponse(
+          400,
+          'INVALID_CONVERSATION_IDS',
+          '存在しない対話IDが含まれています',
+          { missingIds } as Record<string, unknown>
+        );
+      }
+    }
+
+    // Firestoreに保存
+    const docRef = await db.collection('spaces').add({
       ...data,
-      status: 'active', // デフォルトステータス
       createdAt: now,
       updatedAt: now,
     });
 
     // 成功レスポンス
-    const response: SaveConversationResponse = {
+    const response: SaveSpaceResponse = {
       success: true,
       data: {
         id: docRef.id,
@@ -79,27 +94,27 @@ export async function POST(
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    return createServerErrorResponse(error, 'POST /api/conversations');
+    return createServerErrorResponse(error, 'POST /api/spaces');
   }
 }
 
 /**
- * 対話一覧を取得する
+ * スペース一覧を取得する
  *
  * @param request - GETリクエスト（クエリパラメータ: cursor?）
- * @returns 成功時: { success: true, data: { conversations, nextCursor? } }
+ * @returns 成功時: { success: true, data: { spaces, nextCursor? } }
  * @returns 失敗時: { success: false, error: { code, message } }
  */
 export async function GET(
   request: NextRequest
-): Promise<NextResponse<ListConversationsResponse | ApiFailure>> {
+): Promise<NextResponse<ListSpacesResponse | ApiFailure>> {
   try {
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get('cursor');
 
     const db = getDb();
     let query = db
-      .collection('conversations')
+      .collection('spaces')
       .orderBy('updatedAt', 'desc')
       .limit(PAGE_SIZE + 1); // 次ページの有無を判定するため+1件取得
 
@@ -108,7 +123,7 @@ export async function GET(
       if (!isValidDocumentId(cursor)) {
         return createClientErrorResponse(400, 'INVALID_CURSOR', 'カーソルのフォーマットが不正です');
       }
-      const cursorDoc = await db.collection('conversations').doc(cursor).get();
+      const cursorDoc = await db.collection('spaces').doc(cursor).get();
       if (cursorDoc.exists) {
         query = query.startAfter(cursorDoc);
       }
@@ -119,31 +134,30 @@ export async function GET(
 
     // 次ページの有無を判定
     const hasNextPage = docs.length > PAGE_SIZE;
-    const conversationDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
+    const spaceDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
 
-    // ドキュメントをConversation型に変換
+    // ドキュメントをSpace型に変換
     // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
-    // 将来的にはConversationSchema.parseで再検証することで堅牢性を向上できる
-    const conversations: Conversation[] = conversationDocs.map((doc) => ({
+    const spaces: Space[] = spaceDocs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as Conversation[];
+    })) as Space[];
 
     // 次ページカーソルを生成（最後のドキュメントIDを使用）
     const nextCursor = hasNextPage
-      ? conversationDocs[conversationDocs.length - 1].id
+      ? spaceDocs[spaceDocs.length - 1].id
       : undefined;
 
-    const response: ListConversationsResponse = {
+    const response: ListSpacesResponse = {
       success: true,
       data: {
-        conversations,
+        spaces,
         ...(nextCursor && { nextCursor }),
       },
     };
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    return createServerErrorResponse(error, 'GET /api/conversations');
+    return createServerErrorResponse(error, 'GET /api/spaces');
   }
 }

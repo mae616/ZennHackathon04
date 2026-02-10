@@ -11,3 +11,6 @@ export * from './types/api';
 
 // 洞察関連
 export * from './types/insight';
+
+// スペース関連
+export * from './types/space';
