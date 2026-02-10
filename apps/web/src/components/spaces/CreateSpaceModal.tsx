@@ -32,14 +32,7 @@ export function CreateSpaceModal({ isOpen, onClose }: CreateSpaceModalProps) {
   const [error, setError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  /** モーダル表示時にタイトル入力にフォーカス */
-  useEffect(() => {
-    if (isOpen) {
-      // DOMが描画された後にフォーカスを当てる
-      const timer = setTimeout(() => titleInputRef.current?.focus(), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   /** フォームリセット */
   const resetForm = useCallback(() => {
@@ -54,6 +47,47 @@ export function CreateSpaceModal({ isOpen, onClose }: CreateSpaceModalProps) {
     resetForm();
     onClose();
   }, [isSubmitting, resetForm, onClose]);
+
+  /** モーダル表示時にタイトル入力にフォーカス + ESCキーで閉じる + フォーカストラップ */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // DOMが描画された後にフォーカスを当てる
+    const timer = setTimeout(() => titleInputRef.current?.focus(), 100);
+
+    // ESCキーでモーダルを閉じる
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        handleClose();
+        return;
+      }
+
+      // フォーカストラップ: Tabキーでモーダル内にフォーカスを閉じ込める
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'input, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isSubmitting, handleClose]);
 
   /** スペースを作成する */
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -110,6 +144,7 @@ export function CreateSpaceModal({ isOpen, onClose }: CreateSpaceModalProps) {
 
       {/* モーダル本体 */}
       <div
+        ref={modalRef}
         className="relative w-full max-w-md rounded-lg p-6 shadow-lg"
         style={{ backgroundColor: 'var(--bg-card)' }}
       >

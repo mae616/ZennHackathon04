@@ -14,8 +14,8 @@ import { Lightbulb, Loader2, MessageSquare, Sparkles, AlertCircle, RotateCcw } f
 import type { Insight } from '@zenn-hackathon04/shared';
 
 interface InsightSectionProps {
-  /** 紐づく対話のID */
-  conversationId: string;
+  /** 紐づく対話のID（スペース表示時はundefined） */
+  conversationId?: string;
   /** 洞察一覧 */
   insights: Insight[];
   /** ローディング状態 */

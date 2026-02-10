@@ -14,8 +14,8 @@ import { formatAppendHeader } from '@/lib/utils/date';
 import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning';
 
 interface NoteSectionProps {
-  /** PATCH APIのエンドポイント（例: "/api/conversations/abc123", "/api/spaces/xyz789"） */
-  apiEndpoint: string;
+  /** PATCH APIのエンドポイント（対話またはスペースのメモ更新用） */
+  apiEndpoint: `/api/conversations/${string}` | `/api/spaces/${string}`;
   /** メモ内容（undefinedの場合は空欄として表示） */
   note: string | undefined;
 }

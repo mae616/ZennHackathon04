@@ -29,6 +29,11 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  /** 部分的に取得失敗した対話の件数 */
+  const [partialFailureCount, setPartialFailureCount] = useState(0);
+
+  /** conversationIds をプリミティブ化して安定した依存配列に使用 */
+  const conversationIdsKey = conversationIds.join(',');
 
   /** 対話データを取得する */
   const fetchConversations = useCallback(async () => {
@@ -41,8 +46,9 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
     try {
       setIsLoading(true);
       setHasError(false);
+      setPartialFailureCount(0);
 
-      // 個別に取得（Firestoreには IN クエリの制限があるため）
+      // 個別に取得（バッチ取得APIは未実装のため個別fetch — Issue #47 で改善予定）
       const results = await Promise.allSettled(
         conversationIds.map(async (id) => {
           const response = await fetch(`/api/conversations/${id}`);
@@ -51,6 +57,12 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
           return data.success ? data.data as Conversation : null;
         })
       );
+
+      // 部分的取得失敗の検出（W9対応）
+      const failedCount = results.filter(
+        (r) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value === null)
+      ).length;
+      setPartialFailureCount(failedCount);
 
       const validConversations = results
         .filter((r): r is PromiseFulfilledResult<Conversation | null> => r.status === 'fulfilled')
@@ -63,7 +75,8 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
     } finally {
       setIsLoading(false);
     }
-  }, [conversationIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationIdsKey でプリミティブ比較（配列参照の不安定化を回避）
+  }, [conversationIdsKey]);
 
   useEffect(() => {
     fetchConversations();
@@ -102,6 +115,20 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
           {isLoading ? '...' : `${conversations.length}件`}
         </span>
       </div>
+
+      {/* 部分的取得失敗の通知 */}
+      {!hasError && partialFailureCount > 0 && (
+        <div
+          className="flex items-center gap-2 rounded-sm px-3 py-2 text-xs"
+          style={{
+            backgroundColor: '#FEF9C3',
+            color: '#854D0E',
+          }}
+        >
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          {conversationIds.length}件中{partialFailureCount}件の対話の取得に失敗しました
+        </div>
+      )}
 
       {/* エラー表示 */}
       {hasError && (

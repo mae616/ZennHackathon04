@@ -43,6 +43,12 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
     return generateGreetingMessage(context);
   }, [conversation.messages, conversation.title, conversation.note]);
 
+  /** chatPayload をメモ化（オブジェクト参照の安定化） */
+  const chatPayload = useMemo(
+    () => ({ conversationId: conversation.id }),
+    [conversation.id]
+  );
+
   /** 洞察一覧 */
   const [insights, setInsights] = useState<Insight[]>([]);
   /** 洞察ローディング状態 */
@@ -112,7 +118,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
       <div className="sticky top-8 w-[400px] flex-shrink-0 self-start h-[calc(100vh-4rem)]">
         <ThinkResumePanel
           greeting={greeting}
-          chatPayload={{ conversationId: conversation.id }}
+          chatPayload={chatPayload}
           insightConversationId={conversation.id}
           onInsightSaved={handleInsightSaved}
         />

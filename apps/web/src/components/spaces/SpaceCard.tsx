@@ -3,6 +3,8 @@
  *
  * スペース一覧で使用するカードUI。
  * RDD準拠: アイコン、タイトル、説明文、統計（対話N件）
+ * NOTE: RDD記載の「洞察 N件」バッジは Issue #47 で対応予定
+ * NOTE: RDD記載の「メニュー（...）」は将来対応予定
  */
 import Link from 'next/link';
 import type { Space } from '@zenn-hackathon04/shared';

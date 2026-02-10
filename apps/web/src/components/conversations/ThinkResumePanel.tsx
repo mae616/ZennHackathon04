@@ -1,7 +1,7 @@
 /**
  * @fileoverview 思考再開パネルコンポーネント
  *
- * Geminiとの対話UIパネル。保存した対話をコンテキストとして
+ * Geminiとの対話UIパネル。保存した対話またはスペースの統合コンテキストを使って
  * Geminiと会話し、思考を再開・深掘りできる。
  *
  * デザイン: thinkresume.pen のrightColumn（Geminiと対話）を参照
@@ -30,8 +30,8 @@ interface ChatMessage {
 interface ThinkResumePanelProps {
   /** 初回挨拶メッセージ（親コンポーネントで生成） */
   greeting: string;
-  /** /api/chat に送信するコンテキスト識別用ペイロード */
-  chatPayload: Record<string, string>;
+  /** /api/chat に送信するコンテキスト識別用ペイロード（conversationId or spaceId） */
+  chatPayload: { conversationId: string } | { spaceId: string };
   /** 洞察保存時のconversationId（undefinedの場合は保存ボタン非表示） */
   insightConversationId?: string;
   /** 洞察保存後のコールバック */

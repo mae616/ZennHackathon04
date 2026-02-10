@@ -26,8 +26,10 @@ export default async function SpacesPage() {
     } else {
       error = response.error.message;
     }
-  } catch {
+  } catch (err) {
     // Firebaseが未設定の場合などは空配列で表示
+    // エラー詳細はサーバーログで確認可能
+    console.error('Failed to fetch spaces:', err);
     error = null;
   }
 

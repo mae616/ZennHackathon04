@@ -67,10 +67,17 @@ function buildConversationSummary(conversation: Conversation): string {
 /**
  * 複数対話の統合コンテキストを構築する
  *
+ * NOTE: 対話数やメッセージ数が多い場合、Geminiのトークン制限に達する恐れがある。
+ * 本番運用時はメッセージ数制限（各対話の最新N件のみ）や合計文字数上限の導入を検討すること。
+ *
  * @param conversations - スペースに含まれる対話の配列
  * @returns 統合された要約テキスト
  */
 function buildSpaceConversationSummary(conversations: Conversation[]): string {
+  if (conversations.length === 0) {
+    return 'このスペースにはまだ対話が含まれていません。';
+  }
+
   return conversations
     .map((conv, i) => {
       const header = `### 対話${i + 1}: ${conv.title}`;
@@ -196,10 +203,15 @@ export async function POST(
 
     const { conversationId, spaceId, userMessage, chatHistory } = parseResult.data;
 
+    // Zodのrefineで排他チェック済みだが、TypeScriptの型ナロイング用に明示的ガード
+    if (!conversationId && !spaceId) {
+      return createClientErrorResponse(400, 'VALIDATION_ERROR', 'conversationIdまたはspaceIdが必要です');
+    }
+
     // コンテキストを構築（対話 or スペース）
     const result = conversationId
       ? await buildConversationContext(conversationId)
-      : await buildSpaceContext(spaceId!);
+      : await buildSpaceContext(spaceId as string);
 
     if ('error' in result) {
       return result.error;
