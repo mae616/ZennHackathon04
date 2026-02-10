@@ -2,16 +2,17 @@
  * チャットAPIエンドポイント
  *
  * POST /api/chat
- * - 対話コンテキストを元にGeminiとストリーミングチャットを行う
- * - conversationIdから対話を取得し、コンテキストを構築
+ * - 対話またはスペースのコンテキストを元にGeminiとストリーミングチャットを行う
+ * - conversationId または spaceId からデータを取得し、コンテキストを構築
  * - ユーザーメッセージに対するGeminiの応答をストリーミングで返す
  *
  * RDD参照:
  * - doc/input/rdd.md §思考再開機能
+ * - doc/input/rdd.md §スペース機能（統合コンテキストで対話）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { Conversation } from '@zenn-hackathon04/shared';
+import type { Conversation, Space } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
 import {
   streamChat,
@@ -23,10 +24,14 @@ import { isValidDocumentId } from '@/lib/api/validation';
 
 /**
  * チャットリクエストのスキーマ
+ *
+ * conversationId または spaceId のいずれか一方を指定する。
  */
 const ChatRequestSchema = z.object({
-  /** 対話ID（コンテキスト取得用） */
-  conversationId: z.string().min(1),
+  /** 対話ID（コンテキスト取得用、spaceIdと排他） */
+  conversationId: z.string().min(1).optional(),
+  /** スペースID（統合コンテキスト取得用、conversationIdと排他） */
+  spaceId: z.string().min(1).optional(),
   /** ユーザーのメッセージ（メモリ消費防止のため上限設定） */
   userMessage: z.string().min(1).max(10000),
   /** これまでのGeminiとのチャット履歴（メモリ・トークン消費防止のため上限設定） */
@@ -39,7 +44,10 @@ const ChatRequestSchema = z.object({
     )
     .max(50)
     .default([]),
-});
+}).refine(
+  (data) => (data.conversationId !== undefined) !== (data.spaceId !== undefined),
+  { message: 'conversationId または spaceId のいずれか一方を指定してください' }
+);
 
 /**
  * 対話履歴からコンテキスト用の要約を生成する
@@ -57,9 +65,110 @@ function buildConversationSummary(conversation: Conversation): string {
 }
 
 /**
+ * 複数対話の統合コンテキストを構築する
+ *
+ * @param conversations - スペースに含まれる対話の配列
+ * @returns 統合された要約テキスト
+ */
+function buildSpaceConversationSummary(conversations: Conversation[]): string {
+  return conversations
+    .map((conv, i) => {
+      const header = `### 対話${i + 1}: ${conv.title}`;
+      const messages = conv.messages
+        .map((msg) => {
+          const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
+          return `${role}: ${msg.content}`;
+        })
+        .join('\n\n');
+      return `${header}\n${messages}`;
+    })
+    .join('\n\n---\n\n');
+}
+
+/**
+ * 単一対話からコンテキストを構築する
+ */
+async function buildConversationContext(
+  conversationId: string
+): Promise<{ context: ThinkResumeContext } | { error: NextResponse }> {
+  if (!isValidDocumentId(conversationId)) {
+    return { error: createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です') };
+  }
+
+  const db = getDb();
+  const doc = await db.collection('conversations').doc(conversationId).get();
+
+  if (!doc.exists) {
+    return { error: createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません') };
+  }
+
+  const conversation = { id: doc.id, ...doc.data() } as Conversation;
+
+  if (!Array.isArray(conversation.messages)) {
+    return {
+      error: createServerErrorResponse(
+        new Error('conversation.messages is not an array'),
+        'POST /api/chat (data integrity)'
+      ) as NextResponse,
+    };
+  }
+
+  return {
+    context: {
+      conversationSummary: buildConversationSummary(conversation),
+      title: conversation.title,
+      note: conversation.note,
+    },
+  };
+}
+
+/**
+ * スペースから統合コンテキストを構築する
+ */
+async function buildSpaceContext(
+  spaceId: string
+): Promise<{ context: ThinkResumeContext } | { error: NextResponse }> {
+  if (!isValidDocumentId(spaceId)) {
+    return { error: createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です') };
+  }
+
+  const db = getDb();
+  const spaceDoc = await db.collection('spaces').doc(spaceId).get();
+
+  if (!spaceDoc.exists) {
+    return { error: createClientErrorResponse(404, 'NOT_FOUND', '指定されたスペースが見つかりません') };
+  }
+
+  const space = { id: spaceDoc.id, ...spaceDoc.data() } as Space;
+
+  // スペースに含まれる対話を全て取得
+  const conversations: Conversation[] = [];
+  if (space.conversationIds.length > 0) {
+    const refs = space.conversationIds.map((id) => db.collection('conversations').doc(id));
+    const docs = await db.getAll(...refs);
+    for (const doc of docs) {
+      if (doc.exists) {
+        const conv = { id: doc.id, ...doc.data() } as Conversation;
+        if (Array.isArray(conv.messages)) {
+          conversations.push(conv);
+        }
+      }
+    }
+  }
+
+  return {
+    context: {
+      conversationSummary: buildSpaceConversationSummary(conversations),
+      title: space.title,
+      note: space.note,
+    },
+  };
+}
+
+/**
  * ストリーミングチャットエンドポイント
  *
- * @param request - POSTリクエスト（conversationId, userMessage, chatHistory）
+ * @param request - POSTリクエスト（conversationId/spaceId, userMessage, chatHistory）
  * @returns ストリーミングレスポンス（text/event-stream）
  */
 export async function POST(
@@ -85,42 +194,18 @@ export async function POST(
       );
     }
 
-    const { conversationId, userMessage, chatHistory } = parseResult.data;
+    const { conversationId, spaceId, userMessage, chatHistory } = parseResult.data;
 
-    // conversationIdのフォーマット検証（Firestore予約パターン等を排除）
-    if (!isValidDocumentId(conversationId)) {
-      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    // コンテキストを構築（対話 or スペース）
+    const result = conversationId
+      ? await buildConversationContext(conversationId)
+      : await buildSpaceContext(spaceId!);
+
+    if ('error' in result) {
+      return result.error;
     }
 
-    // 対話データを取得
-    const db = getDb();
-    const docRef = db.collection('conversations').doc(conversationId);
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
-    }
-
-    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
-    const conversation: Conversation = {
-      id: doc.id,
-      ...doc.data(),
-    } as Conversation;
-
-    // messagesの存在チェック（データ破損への防御）
-    if (!Array.isArray(conversation.messages)) {
-      return createServerErrorResponse(
-        new Error('conversation.messages is not an array'),
-        'POST /api/chat (data integrity)'
-      );
-    }
-
-    // 思考再開コンテキストを構築
-    const context: ThinkResumeContext = {
-      conversationSummary: buildConversationSummary(conversation),
-      title: conversation.title,
-      note: conversation.note,
-    };
+    const { context } = result;
 
     // チャット履歴を変換
     const messages: GeminiMessage[] = chatHistory.map((msg) => ({

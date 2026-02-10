@@ -14,8 +14,8 @@ import { formatAppendHeader } from '@/lib/utils/date';
 import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning';
 
 interface NoteSectionProps {
-  /** 対話ID（API呼び出し用） */
-  conversationId: string;
+  /** PATCH APIのエンドポイント（例: "/api/conversations/abc123", "/api/spaces/xyz789"） */
+  apiEndpoint: string;
   /** メモ内容（undefinedの場合は空欄として表示） */
   note: string | undefined;
 }
@@ -29,10 +29,10 @@ const NOTE_COLLAPSED_MAX_HEIGHT = 160;
 /**
  * メモセクションコンポーネント
  *
- * @param conversationId - 対話ID
+ * @param apiEndpoint - PATCH APIのエンドポイント
  * @param note - メモ内容
  */
-export function NoteSection({ conversationId, note }: NoteSectionProps) {
+export function NoteSection({ apiEndpoint, note }: NoteSectionProps) {
   const [currentNote, setCurrentNote] = useState(note ?? '');
   const [editMode, setEditMode] = useState<EditMode>('none');
   const [editValue, setEditValue] = useState('');
@@ -108,7 +108,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
     setIsSaving(true);
 
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await fetch(apiEndpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: newNote }),
@@ -128,7 +128,7 @@ export function NoteSection({ conversationId, note }: NoteSectionProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [conversationId, currentNote, editMode, editValue]);
+  }, [apiEndpoint, currentNote, editMode, editValue]);
 
   return (
     <section

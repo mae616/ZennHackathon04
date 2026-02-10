@@ -8,13 +8,14 @@
  */
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Conversation, Insight } from '@zenn-hackathon04/shared';
 import { ConversationHeader } from '@/components/conversations/ConversationHeader';
 import { ChatHistorySection } from '@/components/conversations/ChatHistorySection';
 import { NoteSection } from '@/components/conversations/NoteSection';
 import { InsightSection } from '@/components/conversations/InsightSection';
 import { ThinkResumePanel } from '@/components/conversations/ThinkResumePanel';
+import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
 
 interface ConversationDetailContentProps {
   /** 対話データ */
@@ -30,6 +31,18 @@ interface ConversationDetailContentProps {
  * @param conversation - 対話データ
  */
 export function ConversationDetailContent({ conversation }: ConversationDetailContentProps) {
+  /** 初回挨拶メッセージ（対話コンテキストから生成） */
+  const greeting = useMemo(() => {
+    const context: ThinkResumeContext = {
+      conversationSummary: conversation.messages
+        .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
+        .join('\n\n'),
+      title: conversation.title,
+      note: conversation.note,
+    };
+    return generateGreetingMessage(context);
+  }, [conversation.messages, conversation.title, conversation.note]);
+
   /** 洞察一覧 */
   const [insights, setInsights] = useState<Insight[]>([]);
   /** 洞察ローディング状態 */
@@ -85,7 +98,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
           messages={conversation.messages}
           source={conversation.source}
         />
-        <NoteSection conversationId={conversation.id} note={conversation.note} />
+        <NoteSection apiEndpoint={`/api/conversations/${conversation.id}`} note={conversation.note} />
         <InsightSection
           conversationId={conversation.id}
           insights={insights}
@@ -98,7 +111,9 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
       {/* 右カラム: 思考再開パネル（ページスクロール時もビューポートに固定） */}
       <div className="sticky top-8 w-[400px] flex-shrink-0 self-start h-[calc(100vh-4rem)]">
         <ThinkResumePanel
-          conversation={conversation}
+          greeting={greeting}
+          chatPayload={{ conversationId: conversation.id }}
+          insightConversationId={conversation.id}
           onInsightSaved={handleInsightSaved}
         />
       </div>
