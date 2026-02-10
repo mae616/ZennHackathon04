@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
+
 /** 初回挨拶メッセージのID（フィルタリング・表示制御に使用） */
 const GREETING_MESSAGE_ID = 'greeting';
 

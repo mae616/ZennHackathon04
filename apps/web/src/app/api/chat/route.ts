@@ -22,6 +22,12 @@ import {
 import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
 import { isValidDocumentId } from '@/lib/api/validation';
 
+/** 統合コンテキストの合計文字数上限（Geminiトークン制限 + メモリ枯渇防止） */
+const MAX_CONTEXT_LENGTH = 100_000;
+
+/** スペース内で取得する対話の最大数（サーバーメモリ保護） */
+const MAX_CONVERSATIONS_PER_SPACE = 20;
+
 /**
  * チャットリクエストのスキーマ
  *
@@ -78,18 +84,31 @@ function buildSpaceConversationSummary(conversations: Conversation[]): string {
     return 'このスペースにはまだ対話が含まれていません。';
   }
 
-  return conversations
-    .map((conv, i) => {
-      const header = `### 対話${i + 1}: ${conv.title}`;
-      const messages = conv.messages
-        .map((msg) => {
-          const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
-          return `${role}: ${msg.content}`;
-        })
-        .join('\n\n');
-      return `${header}\n${messages}`;
-    })
-    .join('\n\n---\n\n');
+  let summary = '';
+
+  for (let i = 0; i < conversations.length; i++) {
+    const conv = conversations[i];
+    const header = `### 対話${i + 1}: ${conv.title}`;
+    const messages = conv.messages
+      .map((msg) => {
+        const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
+        return `${role}: ${msg.content}`;
+      })
+      .join('\n\n');
+
+    const section = i === 0 ? `${header}\n${messages}` : `\n\n---\n\n${header}\n${messages}`;
+
+    // 合計文字数が上限を超えた場合は残りの対話を省略
+    if (summary.length + section.length > MAX_CONTEXT_LENGTH) {
+      const remaining = conversations.length - i;
+      summary += `\n\n---\n\n（以下${remaining}件の対話はコンテキスト長上限のため省略）`;
+      break;
+    }
+
+    summary += section;
+  }
+
+  return summary;
 }
 
 /**
@@ -112,6 +131,8 @@ async function buildConversationContext(
   const conversation = { id: doc.id, ...doc.data() } as Conversation;
 
   if (!Array.isArray(conversation.messages)) {
+    // NOTE: createServerErrorResponse は NextResponse<ApiFailure> を返すが、
+    // NextResponse のジェネリクスは不変のため、NextResponse への安全な型拡大キャストが必要
     return {
       error: createServerErrorResponse(
         new Error('conversation.messages is not an array'),
@@ -148,10 +169,11 @@ async function buildSpaceContext(
 
   const space = { id: spaceDoc.id, ...spaceDoc.data() } as Space;
 
-  // スペースに含まれる対話を全て取得
+  // スペースに含まれる対話を取得（上限あり: サーバーメモリ保護）
   const conversations: Conversation[] = [];
-  if (space.conversationIds.length > 0) {
-    const refs = space.conversationIds.map((id) => db.collection('conversations').doc(id));
+  const targetIds = space.conversationIds.slice(0, MAX_CONVERSATIONS_PER_SPACE);
+  if (targetIds.length > 0) {
+    const refs = targetIds.map((id) => db.collection('conversations').doc(id));
     const docs = await db.getAll(...refs);
     for (const doc of docs) {
       if (doc.exists) {

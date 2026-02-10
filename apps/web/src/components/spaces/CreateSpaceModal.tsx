@@ -200,6 +200,7 @@ export function CreateSpaceModal({ isOpen, onClose }: CreateSpaceModalProps) {
             >
               タイトル <span style={{ color: 'var(--red-primary)' }}>*</span>
             </label>
+            {/* NOTE: maxLength はUX補助のみ。実際の入力制約はサーバー側Zodバリデーションで担保 */}
             <input
               ref={titleInputRef}
               id="space-title"

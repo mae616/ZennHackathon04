@@ -34,8 +34,9 @@ export default async function SpaceDetailPage({ params }: Props) {
     if (response.success) {
       space = response.data;
     }
-  } catch {
-    // APIエラーの場合は404として扱う
+  } catch (err) {
+    // APIエラーの場合は404として扱う（サーバーログで詳細確認）
+    console.error('Failed to fetch space:', err);
   }
 
   if (!space) {

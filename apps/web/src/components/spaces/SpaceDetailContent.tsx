@@ -11,8 +11,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { Insight } from '@zenn-hackathon04/shared';
-import type { Space } from '@zenn-hackathon04/shared';
+import type { Insight, Space } from '@zenn-hackathon04/shared';
 import { SpaceHeader } from '@/components/spaces/SpaceHeader';
 import { ConversationsInSpaceSection } from '@/components/spaces/ConversationsInSpaceSection';
 import { NoteSection } from '@/components/conversations/NoteSection';
@@ -47,14 +46,7 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
     [space.id]
   );
 
-  /** conversationIds をメモ化（配列参照の安定化） */
-  const conversationIds = useMemo(
-    () => space.conversationIds,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- space.conversationIds.join(',')でプリミティブ比較
-    [space.conversationIds.join(',')]
-  );
-
-  /** スペース用の空洞察配列（参照安定化） */
+  /** スペース用の空洞察配列（モジュールスコープ定数よりコンポーネント内に配置して意図を明示） */
   const emptyInsights = useMemo<Insight[]>(() => [], []);
 
   return (
@@ -62,7 +54,7 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
       {/* 左カラム: ヘッダー、対話一覧、メモ、洞察 */}
       <div className="flex flex-1 flex-col gap-6">
         <SpaceHeader space={space} />
-        <ConversationsInSpaceSection conversationIds={conversationIds} />
+        <ConversationsInSpaceSection conversationIds={space.conversationIds} />
         <NoteSection apiEndpoint={`/api/spaces/${space.id}`} note={space.note} />
         {/* 洞察セクション: スペースと洞察の紐づけは Issue #47 で対応予定 */}
         <InsightSection

@@ -40,6 +40,8 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
     if (conversationIds.length === 0) {
       setConversations([]);
       setIsLoading(false);
+      setHasError(false);
+      setPartialFailureCount(0);
       return;
     }
 
@@ -48,15 +50,22 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
       setHasError(false);
       setPartialFailureCount(0);
 
-      // 個別に取得（バッチ取得APIは未実装のため個別fetch — Issue #47 で改善予定）
-      const results = await Promise.allSettled(
-        conversationIds.map(async (id) => {
-          const response = await fetch(`/api/conversations/${id}`);
-          if (!response.ok) return null;
-          const data = await response.json();
-          return data.success ? data.data as Conversation : null;
-        })
-      );
+      // 個別に取得（バッチ取得APIは未実装のため個別fetch）
+      // 同時リクエスト数をチャンク化で制限（ブラウザ接続上限 + サーバー負荷対策）
+      const CHUNK_SIZE = 5;
+      const results: PromiseSettledResult<Conversation | null>[] = [];
+      for (let i = 0; i < conversationIds.length; i += CHUNK_SIZE) {
+        const chunk = conversationIds.slice(i, i + CHUNK_SIZE);
+        const chunkResults = await Promise.allSettled(
+          chunk.map(async (id) => {
+            const response = await fetch(`/api/conversations/${id}`);
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.success ? data.data as Conversation : null;
+          })
+        );
+        results.push(...chunkResults);
+      }
 
       // 部分的取得失敗の検出（W9対応）
       const failedCount = results.filter(
