@@ -14,9 +14,9 @@ import { z } from 'zod';
  */
 export const InsightSchema = z.object({
   /** 洞察の一意識別子 */
-  id: z.string(),
+  id: z.string().min(1),
   /** 紐づく対話のID */
-  conversationId: z.string(),
+  conversationId: z.string().min(1),
   /** ユーザーの質問 */
   question: z.string(),
   /** Geminiの回答 */

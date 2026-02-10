@@ -196,8 +196,11 @@ export const UpdateSpaceRequestSchema = z.object({
   description: z.string().max(1000).optional(),
   /** メモ（Firestoreドキュメントサイズ上限を考慮し50000文字制限） */
   note: z.string().max(50000).optional(),
-  /** 含まれる対話IDの配列（全置換） */
-  conversationIds: z.array(z.string()).optional(),
+  /** 含まれる対話IDの配列（全置換、最大100件、Firestore Document ID制約に準拠） */
+  conversationIds: z.array(z.string().min(1).max(1500))
+    .max(100)
+    .refine(ids => new Set(ids).size === ids.length, { message: '重複する対話IDがあります' })
+    .optional(),
 }).refine(
   (data) => Object.values(data).some((v) => v !== undefined),
   { message: '少なくとも1つのフィールドを指定してください' }

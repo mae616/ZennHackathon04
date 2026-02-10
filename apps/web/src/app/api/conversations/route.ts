@@ -14,14 +14,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   SaveConversationRequestSchema,
-  type ApiError,
   type SaveConversationResponse,
   type ApiFailure,
   type ListConversationsResponse,
   type Conversation,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /** 1ページあたりの取得件数 */
 const PAGE_SIZE = 20;
@@ -41,27 +41,19 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    const error: ApiError = {
-      code: 'INVALID_JSON',
-      message: '不正なJSON形式です',
-    };
-    return NextResponse.json({ success: false, error } as ApiFailure, {
-      status: 400,
-    });
+    return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
   }
 
   try {
     // Zodバリデーション
     const parseResult = SaveConversationRequestSchema.safeParse(body);
     if (!parseResult.success) {
-      const error: ApiError = {
-        code: 'VALIDATION_ERROR',
-        message: 'リクエストの形式が不正です',
-        details: parseResult.error.flatten(),
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(
+        400,
+        'INVALID_REQUEST_BODY',
+        'リクエストボディが不正です',
+        { errors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
+      );
     }
 
     const data = parseResult.data;
@@ -111,8 +103,11 @@ export async function GET(
       .orderBy('updatedAt', 'desc')
       .limit(PAGE_SIZE + 1); // 次ページの有無を判定するため+1件取得
 
-    // カーソル指定時は該当ドキュメント以降から取得
+    // カーソル指定時はフォーマット検証後、該当ドキュメント以降から取得
     if (cursor) {
+      if (!isValidDocumentId(cursor)) {
+        return createClientErrorResponse(400, 'INVALID_CURSOR', 'カーソルのフォーマットが不正です');
+      }
       const cursorDoc = await db.collection('conversations').doc(cursor).get();
       if (cursorDoc.exists) {
         query = query.startAfter(cursorDoc);

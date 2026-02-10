@@ -14,13 +14,16 @@ import { z } from 'zod';
  */
 export const SpaceSchema = z.object({
   /** スペースの一意識別子 */
-  id: z.string(),
+  id: z.string().min(1),
   /** スペースのタイトル */
   title: z.string().min(1).max(200),
   /** スペースの説明文 */
   description: z.string().max(1000).optional(),
-  /** このスペースに含まれる対話IDの配列 */
-  conversationIds: z.array(z.string()).default([]),
+  /** このスペースに含まれる対話IDの配列（最大100件、Firestore Document ID制約に準拠） */
+  conversationIds: z.array(z.string().min(1).max(1500))
+    .max(100)
+    .refine(ids => new Set(ids).size === ids.length, { message: '重複する対話IDがあります' })
+    .default([]),
   /** ユーザーによるメモ（Firestoreドキュメントサイズ上限を考慮し50000文字制限） */
   note: z.string().max(50000).optional(),
   /** 作成日時（ISO 8601形式） */

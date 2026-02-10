@@ -129,10 +129,31 @@ export async function PATCH(
     const { title, description, note, conversationIds } = parseResult.data;
 
     // 明示的に渡されたフィールドのみ更新
+    // NOTE: undefined と空文字を区別。空文字は値削除として扱う
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (note !== undefined) updateData.note = note;
-    if (conversationIds !== undefined) updateData.conversationIds = conversationIds;
+
+    // conversationIds の存在チェック（指定されている場合のみ）
+    // NOTE: conversationIds は全置換方式。並行更新でのデータ消失リスクがあるが、
+    // 単一ユーザー想定のHackathon規模のため許容。将来的には差分更新（arrayUnion/arrayRemove）
+    // またはFirestoreトランザクションの導入を検討
+    if (conversationIds !== undefined) {
+      if (conversationIds.length > 0) {
+        const refs = conversationIds.map(cid => db.collection('conversations').doc(cid));
+        const convDocs = await db.getAll(...refs);
+        const missingIds = conversationIds.filter((_, i) => !convDocs[i].exists);
+        if (missingIds.length > 0) {
+          return createClientErrorResponse(
+            400,
+            'INVALID_CONVERSATION_IDS',
+            '存在しない対話IDが含まれています',
+            { missingIds } as Record<string, unknown>
+          );
+        }
+      }
+      updateData.conversationIds = conversationIds;
+    }
 
     // Firestore に更新を適用
     await docRef.update(updateData);
