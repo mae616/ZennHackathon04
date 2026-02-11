@@ -42,6 +42,13 @@ export async function GET(
     }
 
     const db = getDb();
+
+    // スペースの存在確認
+    const spaceDoc = await db.collection('spaces').doc(spaceId).get();
+    if (!spaceDoc.exists) {
+      return createClientErrorResponse(404, 'NOT_FOUND', '指定されたスペースが見つかりません');
+    }
+
     // NOTE: where + orderBy の複合クエリはFirestoreの複合インデックスが必要なため、
     // クライアント側でソートする方式を採用（Hackathon規模では十分）
     const snapshot = await db

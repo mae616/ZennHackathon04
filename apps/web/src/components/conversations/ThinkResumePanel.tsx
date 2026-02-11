@@ -12,7 +12,7 @@
  */
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
 
@@ -50,6 +50,8 @@ interface ChatBubbleProps {
   isSaved?: boolean;
   /** 保存中か */
   isSaving?: boolean;
+  /** 保存失敗したか */
+  isFailed?: boolean;
   /** 洞察保存ボタン押下時のコールバック */
   onSaveInsight?: () => void;
 }
@@ -66,6 +68,7 @@ function ChatBubble({
   showSaveInsight = false,
   isSaved = false,
   isSaving = false,
+  isFailed = false,
   onSaveInsight,
 }: ChatBubbleProps) {
   const isUser = message.role === 'user';
@@ -92,7 +95,11 @@ function ChatBubble({
           disabled={isSaved || isSaving}
           className="mt-1 flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:opacity-70 disabled:cursor-default disabled:opacity-100"
           style={{
-            color: isSaved ? 'var(--gray-500)' : 'var(--red-primary)',
+            color: isFailed
+              ? 'var(--red-primary)'
+              : isSaved
+                ? 'var(--gray-500)'
+                : 'var(--red-primary)',
           }}
         >
           {isSaving ? (
@@ -104,6 +111,11 @@ function ChatBubble({
             <>
               <Check className="h-3 w-3" />
               保存済み
+            </>
+          ) : isFailed ? (
+            <>
+              <AlertCircle className="h-3 w-3" />
+              保存失敗（再試行）
             </>
           ) : (
             <>
@@ -151,7 +163,13 @@ function StreamingIndicator({ content }: { content: string }) {
  * @param insightSpaceId - 洞察保存時のspaceId（スペースレベル）
  * @param onInsightSaved - 洞察保存後のコールバック
  */
-export function ThinkResumePanel({ greeting, chatPayload, insightConversationId, insightSpaceId, onInsightSaved }: ThinkResumePanelProps) {
+export function ThinkResumePanel({
+  greeting,
+  chatPayload,
+  insightConversationId,
+  insightSpaceId,
+  onInsightSaved,
+}: ThinkResumePanelProps) {
   /** チャット履歴 */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   /** 入力中のメッセージ */
@@ -168,6 +186,8 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
   const [savedInsightIds, setSavedInsightIds] = useState<Set<string>>(new Set());
   /** 洞察保存中のメッセージID */
   const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
+  /** 洞察保存に失敗したメッセージIDセット */
+  const [failedInsightIds, setFailedInsightIds] = useState<Set<string>>(new Set());
 
   /** メッセージリストのスクロールコンテナ */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -324,7 +344,14 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
     setError(null);
     setSavedInsightIds(new Set());
     setSavingInsightId(null);
+    setFailedInsightIds(new Set());
   }, []);
+
+  /** 洞察保存が可能かどうか（conversationId または spaceId のいずれかが指定されている） */
+  const canSaveInsight = useMemo(
+    () => !!insightConversationId || !!insightSpaceId,
+    [insightConversationId, insightSpaceId]
+  );
 
   /**
    * メッセージを洞察として保存する
@@ -333,9 +360,6 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
    *
    * @param modelMessageId - 保存対象のmodelメッセージID
    */
-  /** 洞察保存が可能かどうか（conversationId または spaceId のいずれかが指定されている） */
-  const canSaveInsight = !!insightConversationId || !!insightSpaceId;
-
   const handleSaveInsight = useCallback(
     async (modelMessageId: string) => {
       if (!canSaveInsight) return;
@@ -358,6 +382,12 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
       if (!userMessage) return;
 
       setSavingInsightId(modelMessageId);
+      // リトライ時に失敗状態をクリア
+      setFailedInsightIds((prev) => {
+        const next = new Set(prev);
+        next.delete(modelMessageId);
+        return next;
+      });
 
       try {
         // 対話レベル or スペースレベルで保存先を分岐
@@ -380,8 +410,8 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
           onInsightSaved?.();
         }
       } catch {
-        // 保存エラーは静かに失敗（UIにエラー表示しない）
-        // NOTE: 本番環境ではエラー監視サービスに送信すべき
+        // 保存失敗をUIに反映（リトライ可能にするため）
+        setFailedInsightIds((prev) => new Set(prev).add(modelMessageId));
       } finally {
         setSavingInsightId(null);
       }
@@ -448,6 +478,7 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
               showSaveInsight={showSaveInsight}
               isSaved={savedInsightIds.has(message.id)}
               isSaving={savingInsightId === message.id}
+              isFailed={failedInsightIds.has(message.id)}
               onSaveInsight={() => handleSaveInsight(message.id)}
             />
           );

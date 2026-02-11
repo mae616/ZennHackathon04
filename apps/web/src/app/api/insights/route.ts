@@ -81,6 +81,15 @@ export async function POST(
           status: 404,
         });
       }
+    } else {
+      // Zodのrefineで排他バリデーション済みだが、防御的にガード
+      const error: ApiError = {
+        code: 'VALIDATION_ERROR',
+        message: 'conversationId または spaceId のいずれか一方が必要です',
+      };
+      return NextResponse.json({ success: false, error } as ApiFailure, {
+        status: 400,
+      });
     }
 
     // Firestoreに保存

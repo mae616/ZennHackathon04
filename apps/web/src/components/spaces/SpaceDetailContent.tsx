@@ -13,14 +13,15 @@
  */
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Insight, Space } from '@zenn-hackathon04/shared';
+import { useMemo } from 'react';
+import type { Space } from '@zenn-hackathon04/shared';
 import { SpaceHeader } from '@/components/spaces/SpaceHeader';
 import { ConversationsInSpaceSection } from '@/components/spaces/ConversationsInSpaceSection';
 import { NoteSection } from '@/components/conversations/NoteSection';
 import { InsightSection } from '@/components/conversations/InsightSection';
 import { ThinkResumePanel } from '@/components/conversations/ThinkResumePanel';
 import { generateSpaceGreetingMessage } from '@/lib/vertex/types';
+import { useInsights } from '@/hooks/useInsights';
 
 interface SpaceDetailContentProps {
   /** スペースデータ */
@@ -34,8 +35,8 @@ interface SpaceDetailContentProps {
  * 左カラム: 含まれる対話、メモ、洞察
  * 右カラム: 統合コンテキストで対話（ThinkResumePanel）
  *
- * 洞察の取得・更新を一元管理し、ThinkResumePanelでの保存操作を
- * InsightSectionに反映する（ConversationDetailContentと同じパターン）。
+ * 洞察の取得・更新はuseInsightsフックで一元管理し、
+ * ThinkResumePanelでの保存操作をInsightSectionに反映する。
  *
  * @param space - スペースデータ
  */
@@ -52,51 +53,9 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
     [space.id]
   );
 
-  /** 洞察一覧 */
-  const [insights, setInsights] = useState<Insight[]>([]);
-  /** 洞察ローディング状態 */
-  const [isInsightsLoading, setIsInsightsLoading] = useState(true);
-  /** 洞察取得エラー */
-  const [insightsError, setInsightsError] = useState(false);
-
-  /**
-   * 洞察一覧をAPIから取得する
-   */
-  const fetchInsights = useCallback(async () => {
-    try {
-      setIsInsightsLoading(true);
-      setInsightsError(false);
-      const response = await fetch(`/api/spaces/${space.id}/insights`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setInsights(data.data.insights);
-        } else {
-          setInsightsError(true);
-        }
-      } else {
-        setInsightsError(true);
-      }
-    } catch {
-      setInsightsError(true);
-    } finally {
-      setIsInsightsLoading(false);
-    }
-  }, [space.id]);
-
-  /**
-   * 初回マウント時に洞察を取得
-   */
-  useEffect(() => {
-    fetchInsights();
-  }, [fetchInsights]);
-
-  /**
-   * 洞察保存後のコールバック（リストを再取得）
-   */
-  const handleInsightSaved = useCallback(() => {
-    fetchInsights();
-  }, [fetchInsights]);
+  /** 洞察の取得・管理（useInsightsフックで共通化） */
+  const { insights, isLoading: isInsightsLoading, hasError: insightsError, refetch: refetchInsights } =
+    useInsights(`/api/spaces/${space.id}/insights`);
 
   return (
     <div className="flex flex-1 gap-6">
@@ -109,7 +68,7 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
           insights={insights}
           isLoading={isInsightsLoading}
           hasError={insightsError}
-          onRetry={fetchInsights}
+          onRetry={refetchInsights}
         />
       </div>
 
@@ -119,7 +78,7 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
           greeting={greeting}
           chatPayload={chatPayload}
           insightSpaceId={space.id}
-          onInsightSaved={handleInsightSaved}
+          onInsightSaved={refetchInsights}
         />
       </div>
     </div>
