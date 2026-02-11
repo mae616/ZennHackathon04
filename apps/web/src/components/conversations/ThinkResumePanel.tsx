@@ -408,6 +408,9 @@ export function ThinkResumePanel({
         if (response.ok) {
           setSavedInsightIds((prev) => new Set(prev).add(modelMessageId));
           onInsightSaved?.();
+        } else {
+          // HTTPエラーレスポンス（4xx/5xx）も失敗として扱う
+          setFailedInsightIds((prev) => new Set(prev).add(modelMessageId));
         }
       } catch {
         // 保存失敗をUIに反映（リトライ可能にするため）
