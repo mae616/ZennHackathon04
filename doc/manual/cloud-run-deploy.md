@@ -115,7 +115,7 @@
   COPY packages/shared/ packages/shared/
 
   # shared パッケージをビルド（web が依存）
-  RUN pnpm --filter @zenn-hackathon04/shared run build 2>/dev/null || true
+  RUN pnpm --filter @zenn-hackathon04/shared run build
 
   # Next.js ビルド
   RUN pnpm --filter @zenn-hackathon04/web run build
