@@ -12,7 +12,7 @@
  */
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
 
@@ -33,8 +33,10 @@ interface ThinkResumePanelProps {
   greeting: string;
   /** /api/chat に送信するコンテキスト識別用ペイロード（conversationId or spaceId） */
   chatPayload: { conversationId: string } | { spaceId: string };
-  /** 洞察保存時のconversationId（undefinedの場合は保存ボタン非表示） */
+  /** 洞察保存時のconversationId（対話レベルの洞察） */
   insightConversationId?: string;
+  /** 洞察保存時のspaceId（スペースレベルの洞察） */
+  insightSpaceId?: string;
   /** 洞察保存後のコールバック */
   onInsightSaved?: () => void;
 }
@@ -48,6 +50,8 @@ interface ChatBubbleProps {
   isSaved?: boolean;
   /** 保存中か */
   isSaving?: boolean;
+  /** 保存失敗したか */
+  isFailed?: boolean;
   /** 洞察保存ボタン押下時のコールバック */
   onSaveInsight?: () => void;
 }
@@ -64,6 +68,7 @@ function ChatBubble({
   showSaveInsight = false,
   isSaved = false,
   isSaving = false,
+  isFailed = false,
   onSaveInsight,
 }: ChatBubbleProps) {
   const isUser = message.role === 'user';
@@ -90,7 +95,11 @@ function ChatBubble({
           disabled={isSaved || isSaving}
           className="mt-1 flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:opacity-70 disabled:cursor-default disabled:opacity-100"
           style={{
-            color: isSaved ? 'var(--gray-500)' : 'var(--red-primary)',
+            color: isFailed
+              ? 'var(--red-primary)'
+              : isSaved
+                ? 'var(--gray-500)'
+                : 'var(--red-primary)',
           }}
         >
           {isSaving ? (
@@ -102,6 +111,11 @@ function ChatBubble({
             <>
               <Check className="h-3 w-3" />
               保存済み
+            </>
+          ) : isFailed ? (
+            <>
+              <AlertCircle className="h-3 w-3" />
+              保存失敗（再試行）
             </>
           ) : (
             <>
@@ -145,10 +159,17 @@ function StreamingIndicator({ content }: { content: string }) {
  *
  * @param greeting - 初回挨拶メッセージ
  * @param chatPayload - /api/chat へのコンテキスト識別ペイロード
- * @param insightConversationId - 洞察保存時のconversationId（undefinedで保存ボタン非表示）
+ * @param insightConversationId - 洞察保存時のconversationId（対話レベル）
+ * @param insightSpaceId - 洞察保存時のspaceId（スペースレベル）
  * @param onInsightSaved - 洞察保存後のコールバック
  */
-export function ThinkResumePanel({ greeting, chatPayload, insightConversationId, onInsightSaved }: ThinkResumePanelProps) {
+export function ThinkResumePanel({
+  greeting,
+  chatPayload,
+  insightConversationId,
+  insightSpaceId,
+  onInsightSaved,
+}: ThinkResumePanelProps) {
   /** チャット履歴 */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   /** 入力中のメッセージ */
@@ -165,6 +186,8 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
   const [savedInsightIds, setSavedInsightIds] = useState<Set<string>>(new Set());
   /** 洞察保存中のメッセージID */
   const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
+  /** 洞察保存に失敗したメッセージIDセット */
+  const [failedInsightIds, setFailedInsightIds] = useState<Set<string>>(new Set());
 
   /** メッセージリストのスクロールコンテナ */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -321,7 +344,14 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
     setError(null);
     setSavedInsightIds(new Set());
     setSavingInsightId(null);
+    setFailedInsightIds(new Set());
   }, []);
+
+  /** 洞察保存が可能かどうか（conversationId または spaceId のいずれかが指定されている） */
+  const canSaveInsight = useMemo(
+    () => !!insightConversationId || !!insightSpaceId,
+    [insightConversationId, insightSpaceId]
+  );
 
   /**
    * メッセージを洞察として保存する
@@ -332,8 +362,7 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
    */
   const handleSaveInsight = useCallback(
     async (modelMessageId: string) => {
-      // スペースモードでは洞察保存不可（Issue #47 で対応予定）
-      if (!insightConversationId) return;
+      if (!canSaveInsight) return;
 
       // 対象メッセージを取得
       const modelMessageIndex = messages.findIndex((m) => m.id === modelMessageId);
@@ -353,13 +382,24 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
       if (!userMessage) return;
 
       setSavingInsightId(modelMessageId);
+      // リトライ時に失敗状態をクリア
+      setFailedInsightIds((prev) => {
+        const next = new Set(prev);
+        next.delete(modelMessageId);
+        return next;
+      });
 
       try {
+        // 対話レベル or スペースレベルで保存先を分岐
+        const payload = insightConversationId
+          ? { conversationId: insightConversationId }
+          : { spaceId: insightSpaceId };
+
         const response = await fetch('/api/insights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            conversationId: insightConversationId,
+            ...payload,
             question: userMessage.content,
             answer: modelMessage.content,
           }),
@@ -368,15 +408,18 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
         if (response.ok) {
           setSavedInsightIds((prev) => new Set(prev).add(modelMessageId));
           onInsightSaved?.();
+        } else {
+          // HTTPエラーレスポンス（4xx/5xx）も失敗として扱う
+          setFailedInsightIds((prev) => new Set(prev).add(modelMessageId));
         }
       } catch {
-        // 保存エラーは静かに失敗（UIにエラー表示しない）
-        // NOTE: 本番環境ではエラー監視サービスに送信すべき
+        // 保存失敗をUIに反映（リトライ可能にするため）
+        setFailedInsightIds((prev) => new Set(prev).add(modelMessageId));
       } finally {
         setSavingInsightId(null);
       }
     },
-    [messages, insightConversationId, onInsightSaved]
+    [messages, canSaveInsight, insightConversationId, insightSpaceId, onInsightSaved]
   );
 
   return (
@@ -426,9 +469,9 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
         aria-label="Geminiとの対話履歴"
       >
         {messages.map((message) => {
-          // greeting以外のmodelメッセージに保存ボタンを表示（insightConversationIdがある場合のみ）
+          // greeting以外のmodelメッセージに保存ボタンを表示（洞察保存先が指定されている場合のみ）
           const showSaveInsight =
-            !!insightConversationId &&
+            canSaveInsight &&
             message.role === 'model' && message.id !== GREETING_MESSAGE_ID;
 
           return (
@@ -438,6 +481,7 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
               showSaveInsight={showSaveInsight}
               isSaved={savedInsightIds.has(message.id)}
               isSaving={savingInsightId === message.id}
+              isFailed={failedInsightIds.has(message.id)}
               onSaveInsight={() => handleSaveInsight(message.id)}
             />
           );

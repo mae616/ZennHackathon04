@@ -2,6 +2,9 @@
  * @fileoverview スペース詳細コンテンツのClient Componentラッパー
  *
  * スペースの詳細表示（含まれる対話・メモ・洞察・統合コンテキスト対話）を一元管理する。
+ * 洞察の取得・保存状態を管理し、ThinkResumePanelでの保存操作を
+ * InsightSectionに反映する。
+ *
  * RDD参照: §スペース機能（Web）UI構成
  *   1. 含まれる対話一覧
  *   2. メモ・要件など（編集可能）
@@ -11,13 +14,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { Insight, Space } from '@zenn-hackathon04/shared';
+import type { Space } from '@zenn-hackathon04/shared';
 import { SpaceHeader } from '@/components/spaces/SpaceHeader';
 import { ConversationsInSpaceSection } from '@/components/spaces/ConversationsInSpaceSection';
 import { NoteSection } from '@/components/conversations/NoteSection';
 import { InsightSection } from '@/components/conversations/InsightSection';
 import { ThinkResumePanel } from '@/components/conversations/ThinkResumePanel';
 import { generateSpaceGreetingMessage } from '@/lib/vertex/types';
+import { useInsights } from '@/hooks/useInsights';
 
 interface SpaceDetailContentProps {
   /** スペースデータ */
@@ -30,6 +34,9 @@ interface SpaceDetailContentProps {
  * RDD §スペース機能（Web）UI構成に準拠:
  * 左カラム: 含まれる対話、メモ、洞察
  * 右カラム: 統合コンテキストで対話（ThinkResumePanel）
+ *
+ * 洞察の取得・更新はuseInsightsフックで一元管理し、
+ * ThinkResumePanelでの保存操作をInsightSectionに反映する。
  *
  * @param space - スペースデータ
  */
@@ -46,8 +53,9 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
     [space.id]
   );
 
-  /** スペース用の空洞察配列（モジュールスコープ定数よりコンポーネント内に配置して意図を明示） */
-  const emptyInsights = useMemo<Insight[]>(() => [], []);
+  /** 洞察の取得・管理（useInsightsフックで共通化） */
+  const { insights, isLoading: isInsightsLoading, hasError: insightsError, refetch: refetchInsights } =
+    useInsights(`/api/spaces/${space.id}/insights`);
 
   return (
     <div className="flex flex-1 gap-6">
@@ -56,10 +64,11 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
         <SpaceHeader space={space} />
         <ConversationsInSpaceSection spaceId={space.id} conversationIds={space.conversationIds} />
         <NoteSection apiEndpoint={`/api/spaces/${space.id}`} note={space.note} />
-        {/* 洞察セクション: スペースと洞察の紐づけは Issue #47 で対応予定 */}
         <InsightSection
-          insights={emptyInsights}
-          isLoading={false}
+          insights={insights}
+          isLoading={isInsightsLoading}
+          hasError={insightsError}
+          onRetry={refetchInsights}
         />
       </div>
 
@@ -68,6 +77,8 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
         <ThinkResumePanel
           greeting={greeting}
           chatPayload={chatPayload}
+          insightSpaceId={space.id}
+          onInsightSaved={refetchInsights}
         />
       </div>
     </div>

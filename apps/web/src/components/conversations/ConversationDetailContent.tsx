@@ -8,14 +8,15 @@
  */
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Conversation, Insight } from '@zenn-hackathon04/shared';
+import { useMemo } from 'react';
+import type { Conversation } from '@zenn-hackathon04/shared';
 import { ConversationHeader } from '@/components/conversations/ConversationHeader';
 import { ChatHistorySection } from '@/components/conversations/ChatHistorySection';
 import { NoteSection } from '@/components/conversations/NoteSection';
 import { InsightSection } from '@/components/conversations/InsightSection';
 import { ThinkResumePanel } from '@/components/conversations/ThinkResumePanel';
 import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
+import { useInsights } from '@/hooks/useInsights';
 
 interface ConversationDetailContentProps {
   /** 対話データ */
@@ -25,8 +26,8 @@ interface ConversationDetailContentProps {
 /**
  * 対話詳細のメインコンテンツ
  *
- * 洞察の取得・更新を一元管理し、ThinkResumePanelでの保存操作を
- * InsightSectionに反映する。
+ * 洞察の取得・更新はuseInsightsフックで一元管理し、
+ * ThinkResumePanelでの保存操作をInsightSectionに反映する。
  *
  * @param conversation - 対話データ
  */
@@ -49,51 +50,9 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
     [conversation.id]
   );
 
-  /** 洞察一覧 */
-  const [insights, setInsights] = useState<Insight[]>([]);
-  /** 洞察ローディング状態 */
-  const [isInsightsLoading, setIsInsightsLoading] = useState(true);
-  /** 洞察取得エラー */
-  const [insightsError, setInsightsError] = useState(false);
-
-  /**
-   * 洞察一覧をAPIから取得する
-   */
-  const fetchInsights = useCallback(async () => {
-    try {
-      setIsInsightsLoading(true);
-      setInsightsError(false);
-      const response = await fetch(`/api/conversations/${conversation.id}/insights`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setInsights(data.data.insights);
-        } else {
-          setInsightsError(true);
-        }
-      } else {
-        setInsightsError(true);
-      }
-    } catch {
-      setInsightsError(true);
-    } finally {
-      setIsInsightsLoading(false);
-    }
-  }, [conversation.id]);
-
-  /**
-   * 初回マウント時に洞察を取得
-   */
-  useEffect(() => {
-    fetchInsights();
-  }, [fetchInsights]);
-
-  /**
-   * 洞察保存後のコールバック（リストを再取得）
-   */
-  const handleInsightSaved = useCallback(() => {
-    fetchInsights();
-  }, [fetchInsights]);
+  /** 洞察の取得・管理（useInsightsフックで共通化） */
+  const { insights, isLoading: isInsightsLoading, hasError: insightsError, refetch: refetchInsights } =
+    useInsights(`/api/conversations/${conversation.id}/insights`);
 
   return (
     <div className="flex flex-1 gap-6">
@@ -110,7 +69,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
           insights={insights}
           isLoading={isInsightsLoading}
           hasError={insightsError}
-          onRetry={fetchInsights}
+          onRetry={refetchInsights}
         />
       </div>
 
@@ -120,7 +79,7 @@ export function ConversationDetailContent({ conversation }: ConversationDetailCo
           greeting={greeting}
           chatPayload={chatPayload}
           insightConversationId={conversation.id}
-          onInsightSaved={handleInsightSaved}
+          onInsightSaved={refetchInsights}
         />
       </div>
     </div>
