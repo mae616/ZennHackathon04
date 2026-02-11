@@ -21,17 +21,17 @@ const API_BASE_URL = process.env.API_URL || 'http://localhost:3000';
 /**
  * 対話一覧を取得する
  *
- * @param cursor - ページネーションカーソル（省略時は先頭から）
+ * @param options - フィルタ・ページネーションオプション
  * @returns 対話一覧レスポンス
  * @throws ネットワークエラーまたはAPIエラー
  */
 export async function fetchConversations(
-  cursor?: string
+  options?: { cursor?: string; tag?: string; q?: string }
 ): Promise<ListConversationsResponse | ApiFailure> {
   const url = new URL('/api/conversations', API_BASE_URL);
-  if (cursor) {
-    url.searchParams.set('cursor', cursor);
-  }
+  if (options?.cursor) url.searchParams.set('cursor', options.cursor);
+  if (options?.tag) url.searchParams.set('tag', options.tag);
+  if (options?.q) url.searchParams.set('q', options.q);
 
   const response = await fetch(url.toString(), {
     cache: 'no-store', // 常に最新データを取得
