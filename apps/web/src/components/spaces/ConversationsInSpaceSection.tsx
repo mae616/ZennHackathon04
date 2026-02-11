@@ -208,7 +208,7 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
         </button>
       </div>
 
-      {/* 削除失敗の通知（W-01対応：自動消去あり） */}
+      {/* 削除失敗の通知（W-01対応：手動消去） */}
       {removeError && (
         <div
           className="flex items-center justify-between rounded-sm px-3 py-2 text-sm"
