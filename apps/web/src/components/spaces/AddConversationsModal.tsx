@@ -91,6 +91,7 @@ export function AddConversationsModal({
     fetchAllConversations();
     setSelectedIds(new Set(currentConversationIds));
     setSearchQuery('');
+    setError(null);
 
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
 
@@ -288,6 +289,8 @@ export function AddConversationsModal({
                   <button
                     key={conversation.id}
                     type="button"
+                    role="checkbox"
+                    aria-checked={isSelected}
                     onClick={() => toggleSelection(conversation.id)}
                     disabled={isSubmitting}
                     className="flex items-center gap-3 rounded-sm p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
