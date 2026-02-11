@@ -10,18 +10,19 @@
  * - Firestoreから対話一覧を取得する
  * - updatedAt降順でソート
  * - ページネーション対応（cursor/PAGE_SIZE）
+ * - タグフィルタ（?tag=xxx）、タイトル検索（?q=xxx）対応
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
   SaveConversationRequestSchema,
-  type ApiError,
   type SaveConversationResponse,
   type ApiFailure,
   type ListConversationsResponse,
   type Conversation,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /** 1ページあたりの取得件数 */
 const PAGE_SIZE = 20;
@@ -41,27 +42,19 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    const error: ApiError = {
-      code: 'INVALID_JSON',
-      message: '不正なJSON形式です',
-    };
-    return NextResponse.json({ success: false, error } as ApiFailure, {
-      status: 400,
-    });
+    return createClientErrorResponse(400, 'INVALID_JSON', '不正なJSON形式です');
   }
 
   try {
     // Zodバリデーション
     const parseResult = SaveConversationRequestSchema.safeParse(body);
     if (!parseResult.success) {
-      const error: ApiError = {
-        code: 'VALIDATION_ERROR',
-        message: 'リクエストの形式が不正です',
-        details: parseResult.error.flatten(),
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 400,
-      });
+      return createClientErrorResponse(
+        400,
+        'INVALID_REQUEST_BODY',
+        'リクエストボディが不正です',
+        { errors: parseResult.error.flatten().fieldErrors } as Record<string, unknown>
+      );
     }
 
     const data = parseResult.data;
@@ -91,10 +84,13 @@ export async function POST(
   }
 }
 
+/** フィルタ適用時の最大取得件数（Hackathon規模: post-queryフィルタ用） */
+const SEARCH_FETCH_LIMIT = 200;
+
 /**
  * 対話一覧を取得する
  *
- * @param request - GETリクエスト（クエリパラメータ: cursor?）
+ * @param request - GETリクエスト（クエリパラメータ: cursor?, tag?, q?）
  * @returns 成功時: { success: true, data: { conversations, nextCursor? } }
  * @returns 失敗時: { success: false, error: { code, message } }
  */
@@ -104,15 +100,25 @@ export async function GET(
   try {
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get('cursor');
+    const tag = searchParams.get('tag');
+    const q = searchParams.get('q');
+
+    const hasFilters = !!tag || !!q;
 
     const db = getDb();
+    // フィルタ適用時はpost-queryフィルタのため多めに取得（Firestore複合インデックス不要）
+    const fetchLimit = hasFilters ? SEARCH_FETCH_LIMIT : PAGE_SIZE + 1;
     let query = db
       .collection('conversations')
       .orderBy('updatedAt', 'desc')
-      .limit(PAGE_SIZE + 1); // 次ページの有無を判定するため+1件取得
+      .limit(fetchLimit);
 
-    // カーソル指定時は該当ドキュメント以降から取得
-    if (cursor) {
+    // カーソル指定時はフォーマット検証後、該当ドキュメント以降から取得
+    // NOTE: フィルタ適用時はカーソルを無視（post-queryフィルタと併用が困難なため）
+    if (cursor && !hasFilters) {
+      if (!isValidDocumentId(cursor)) {
+        return createClientErrorResponse(400, 'INVALID_CURSOR', 'カーソルのフォーマットが不正です');
+      }
       const cursorDoc = await db.collection('conversations').doc(cursor).get();
       if (cursorDoc.exists) {
         query = query.startAfter(cursorDoc);
@@ -120,23 +126,35 @@ export async function GET(
     }
 
     const snapshot = await query.get();
-    const docs = snapshot.docs;
-
-    // 次ページの有無を判定
-    const hasNextPage = docs.length > PAGE_SIZE;
-    const conversationDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
 
     // ドキュメントをConversation型に変換
     // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
-    // 将来的にはConversationSchema.parseで再検証することで堅牢性を向上できる
-    const conversations: Conversation[] = conversationDocs.map((doc) => ({
+    let conversations: Conversation[] = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Conversation[];
 
-    // 次ページカーソルを生成（最後のドキュメントIDを使用）
+    // post-queryフィルタ: タグ（Firestore複合インデックス不要にするためJS側で実施）
+    if (tag) {
+      conversations = conversations.filter((c) => c.tags.includes(tag));
+    }
+
+    // post-queryフィルタ: タイトル部分一致（Firestoreはフルテキスト検索非対応）
+    if (q) {
+      const lowerQ = q.toLowerCase();
+      conversations = conversations.filter((c) =>
+        c.title.toLowerCase().includes(lowerQ)
+      );
+    }
+
+    // ページネーション（フィルタ適用時はカーソルなし）
+    const hasNextPage = !hasFilters && conversations.length > PAGE_SIZE;
+    if (hasNextPage) {
+      conversations = conversations.slice(0, PAGE_SIZE);
+    }
+
     const nextCursor = hasNextPage
-      ? conversationDocs[conversationDocs.length - 1].id
+      ? conversations[conversations.length - 1]?.id
       : undefined;
 
     const response: ListConversationsResponse = {

@@ -1,7 +1,7 @@
 /**
  * @fileoverview 思考再開パネルコンポーネント
  *
- * Geminiとの対話UIパネル。保存した対話をコンテキストとして
+ * Geminiとの対話UIパネル。保存した対話またはスペースの統合コンテキストを使って
  * Geminiと会話し、思考を再開・深掘りできる。
  *
  * デザイン: thinkresume.pen のrightColumn（Geminiと対話）を参照
@@ -15,8 +15,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, Loader2, AlertCircle, RotateCcw, Plus, Check } from 'lucide-react';
-import type { Conversation } from '@zenn-hackathon04/shared';
-import { generateGreetingMessage, type ThinkResumeContext } from '@/lib/vertex/types';
 
 /** 初回挨拶メッセージのID（フィルタリング・表示制御に使用） */
 const GREETING_MESSAGE_ID = 'greeting';
@@ -31,8 +29,12 @@ interface ChatMessage {
 }
 
 interface ThinkResumePanelProps {
-  /** 対話データ（コンテキスト用） */
-  conversation: Conversation;
+  /** 初回挨拶メッセージ（親コンポーネントで生成） */
+  greeting: string;
+  /** /api/chat に送信するコンテキスト識別用ペイロード（conversationId or spaceId） */
+  chatPayload: { conversationId: string } | { spaceId: string };
+  /** 洞察保存時のconversationId（undefinedの場合は保存ボタン非表示） */
+  insightConversationId?: string;
   /** 洞察保存後のコールバック */
   onInsightSaved?: () => void;
 }
@@ -141,9 +143,12 @@ function StreamingIndicator({ content }: { content: string }) {
  * 保存した対話をコンテキストとしてGeminiと会話できる。
  * ストリーミング表示、初回挨拶、ローディング・エラー状態を管理。
  *
- * @param conversation - 対話データ
+ * @param greeting - 初回挨拶メッセージ
+ * @param chatPayload - /api/chat へのコンテキスト識別ペイロード
+ * @param insightConversationId - 洞察保存時のconversationId（undefinedで保存ボタン非表示）
+ * @param onInsightSaved - 洞察保存後のコールバック
  */
-export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePanelProps) {
+export function ThinkResumePanel({ greeting, chatPayload, insightConversationId, onInsightSaved }: ThinkResumePanelProps) {
   /** チャット履歴 */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   /** 入力中のメッセージ */
@@ -172,22 +177,11 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
   }, []);
 
   /**
-   * 初回マウント時に挨拶メッセージを生成
+   * 初回マウント時に挨拶メッセージを設定
    */
   useEffect(() => {
     if (isInitialized) return;
 
-    // 対話コンテキストを構築
-    const context: ThinkResumeContext = {
-      conversationSummary: conversation.messages
-        .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
-        .join('\n\n'),
-      title: conversation.title,
-      note: conversation.note,
-    };
-
-    // 初回挨拶メッセージを生成
-    const greeting = generateGreetingMessage(context);
     setMessages([
       {
         id: GREETING_MESSAGE_ID,
@@ -196,11 +190,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       },
     ]);
     setIsInitialized(true);
-  // 初回マウント時の初期化専用。isInitializedガードで再実行を防止。
-  // conversation.note はSSR時の初期値のみ使用し、noteの編集による再実行は isInitialized で抑制される。
-  // messages は参照型のため length のみ指定し、無限ループを回避。
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation.id, conversation.messages.length, conversation.title, conversation.note, isInitialized]);
+  }, [greeting, isInitialized]);
 
   /**
    * メッセージが追加されたらスクロール
@@ -246,7 +236,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversationId: conversation.id,
+          ...chatPayload,
           userMessage: trimmedInput,
           chatHistory,
         }),
@@ -318,7 +308,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
       setIsLoading(false);
       setStreamingContent('');
     }
-  }, [input, isLoading, messages, conversation.id]);
+  }, [input, isLoading, messages, chatPayload]);
 
   /**
    * チャットをリセットする
@@ -342,6 +332,9 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
    */
   const handleSaveInsight = useCallback(
     async (modelMessageId: string) => {
+      // スペースモードでは洞察保存不可（Issue #47 で対応予定）
+      if (!insightConversationId) return;
+
       // 対象メッセージを取得
       const modelMessageIndex = messages.findIndex((m) => m.id === modelMessageId);
       if (modelMessageIndex < 0) return;
@@ -366,7 +359,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            conversationId: conversation.id,
+            conversationId: insightConversationId,
             question: userMessage.content,
             answer: modelMessage.content,
           }),
@@ -383,7 +376,7 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
         setSavingInsightId(null);
       }
     },
-    [messages, conversation.id, onInsightSaved]
+    [messages, insightConversationId, onInsightSaved]
   );
 
   return (
@@ -433,8 +426,9 @@ export function ThinkResumePanel({ conversation, onInsightSaved }: ThinkResumePa
         aria-label="Geminiとの対話履歴"
       >
         {messages.map((message) => {
-          // greeting以外のmodelメッセージに保存ボタンを表示
+          // greeting以外のmodelメッセージに保存ボタンを表示（insightConversationIdがある場合のみ）
           const showSaveInsight =
+            !!insightConversationId &&
             message.role === 'model' && message.id !== GREETING_MESSAGE_ID;
 
           return (

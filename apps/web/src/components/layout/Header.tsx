@@ -1,15 +1,16 @@
 /**
  * @fileoverview ページヘッダーコンポーネント
  *
- * ページタイトル、サブタイトル、検索UIを表示する。
+ * ページタイトル、サブタイトル、アクション領域を表示する。
  * デザイン: thinkresume.pen の pageHeader を参照
  */
-import { Search } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
-  showSearch?: boolean;
+  /** 右側アクション領域（検索バー等のClient Componentを挿入） */
+  actions?: ReactNode;
 }
 
 /**
@@ -17,9 +18,9 @@ interface HeaderProps {
  *
  * @param title - ページタイトル
  * @param subtitle - サブタイトル（省略可）
- * @param showSearch - 検索UIを表示するか（デフォルト: false）
+ * @param actions - 右側アクション領域
  */
-export function Header({ title, subtitle, showSearch = false }: HeaderProps) {
+export function Header({ title, subtitle, actions }: HeaderProps) {
   return (
     <header className="flex items-center justify-between">
       {/* 左側: タイトル・サブタイトル */}
@@ -43,21 +44,8 @@ export function Header({ title, subtitle, showSearch = false }: HeaderProps) {
         )}
       </div>
 
-      {/* 右側: 検索ボタン */}
-      {showSearch && (
-        <button
-          type="button"
-          aria-label="対話を検索"
-          className="flex items-center gap-2 rounded border px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
-          style={{
-            borderColor: 'var(--border)',
-            color: 'var(--gray-700)',
-          }}
-        >
-          <Search className="h-4 w-4" aria-hidden="true" />
-          検索
-        </button>
-      )}
+      {/* 右側: アクション領域 */}
+      {actions && <div>{actions}</div>}
     </header>
   );
 }

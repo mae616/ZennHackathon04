@@ -2,16 +2,17 @@
  * チャットAPIエンドポイント
  *
  * POST /api/chat
- * - 対話コンテキストを元にGeminiとストリーミングチャットを行う
- * - conversationIdから対話を取得し、コンテキストを構築
+ * - 対話またはスペースのコンテキストを元にGeminiとストリーミングチャットを行う
+ * - conversationId または spaceId からデータを取得し、コンテキストを構築
  * - ユーザーメッセージに対するGeminiの応答をストリーミングで返す
  *
  * RDD参照:
  * - doc/input/rdd.md §思考再開機能
+ * - doc/input/rdd.md §スペース機能（統合コンテキストで対話）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { Conversation } from '@zenn-hackathon04/shared';
+import type { Conversation, Space } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
 import {
   streamChat,
@@ -21,12 +22,22 @@ import {
 import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
 import { isValidDocumentId } from '@/lib/api/validation';
 
+/** 統合コンテキストの合計文字数上限（Geminiトークン制限 + メモリ枯渇防止） */
+const MAX_CONTEXT_LENGTH = 100_000;
+
+/** スペース内で取得する対話の最大数（サーバーメモリ保護） */
+const MAX_CONVERSATIONS_PER_SPACE = 20;
+
 /**
  * チャットリクエストのスキーマ
+ *
+ * conversationId または spaceId のいずれか一方を指定する。
  */
 const ChatRequestSchema = z.object({
-  /** 対話ID（コンテキスト取得用） */
-  conversationId: z.string().min(1),
+  /** 対話ID（コンテキスト取得用、spaceIdと排他） */
+  conversationId: z.string().min(1).optional(),
+  /** スペースID（統合コンテキスト取得用、conversationIdと排他） */
+  spaceId: z.string().min(1).optional(),
   /** ユーザーのメッセージ（メモリ消費防止のため上限設定） */
   userMessage: z.string().min(1).max(10000),
   /** これまでのGeminiとのチャット履歴（メモリ・トークン消費防止のため上限設定） */
@@ -39,7 +50,10 @@ const ChatRequestSchema = z.object({
     )
     .max(50)
     .default([]),
-});
+}).refine(
+  (data) => (data.conversationId !== undefined) !== (data.spaceId !== undefined),
+  { message: 'conversationId または spaceId のいずれか一方を指定してください' }
+);
 
 /**
  * 対話履歴からコンテキスト用の要約を生成する
@@ -57,9 +71,133 @@ function buildConversationSummary(conversation: Conversation): string {
 }
 
 /**
+ * 複数対話の統合コンテキストを構築する
+ *
+ * NOTE: 対話数やメッセージ数が多い場合、Geminiのトークン制限に達する恐れがある。
+ * 本番運用時はメッセージ数制限（各対話の最新N件のみ）や合計文字数上限の導入を検討すること。
+ *
+ * @param conversations - スペースに含まれる対話の配列
+ * @returns 統合された要約テキスト
+ */
+function buildSpaceConversationSummary(conversations: Conversation[]): string {
+  if (conversations.length === 0) {
+    return 'このスペースにはまだ対話が含まれていません。';
+  }
+
+  let summary = '';
+
+  for (let i = 0; i < conversations.length; i++) {
+    const conv = conversations[i];
+    const header = `### 対話${i + 1}: ${conv.title}`;
+    const messages = conv.messages
+      .map((msg) => {
+        const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'AI' : 'System';
+        return `${role}: ${msg.content}`;
+      })
+      .join('\n\n');
+
+    const section = i === 0 ? `${header}\n${messages}` : `\n\n---\n\n${header}\n${messages}`;
+
+    // 合計文字数が上限を超えた場合は残りの対話を省略
+    if (summary.length + section.length > MAX_CONTEXT_LENGTH) {
+      const remaining = conversations.length - i;
+      summary += `\n\n---\n\n（以下${remaining}件の対話はコンテキスト長上限のため省略）`;
+      break;
+    }
+
+    summary += section;
+  }
+
+  return summary;
+}
+
+/**
+ * 単一対話からコンテキストを構築する
+ */
+async function buildConversationContext(
+  conversationId: string
+): Promise<{ context: ThinkResumeContext } | { error: NextResponse }> {
+  if (!isValidDocumentId(conversationId)) {
+    return { error: createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です') };
+  }
+
+  const db = getDb();
+  const doc = await db.collection('conversations').doc(conversationId).get();
+
+  if (!doc.exists) {
+    return { error: createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません') };
+  }
+
+  const conversation = { id: doc.id, ...doc.data() } as Conversation;
+
+  if (!Array.isArray(conversation.messages)) {
+    // NOTE: createServerErrorResponse は NextResponse<ApiFailure> を返すが、
+    // NextResponse のジェネリクスは不変のため、NextResponse への安全な型拡大キャストが必要
+    return {
+      error: createServerErrorResponse(
+        new Error('conversation.messages is not an array'),
+        'POST /api/chat (data integrity)'
+      ) as NextResponse,
+    };
+  }
+
+  return {
+    context: {
+      conversationSummary: buildConversationSummary(conversation),
+      title: conversation.title,
+      note: conversation.note,
+    },
+  };
+}
+
+/**
+ * スペースから統合コンテキストを構築する
+ */
+async function buildSpaceContext(
+  spaceId: string
+): Promise<{ context: ThinkResumeContext } | { error: NextResponse }> {
+  if (!isValidDocumentId(spaceId)) {
+    return { error: createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です') };
+  }
+
+  const db = getDb();
+  const spaceDoc = await db.collection('spaces').doc(spaceId).get();
+
+  if (!spaceDoc.exists) {
+    return { error: createClientErrorResponse(404, 'NOT_FOUND', '指定されたスペースが見つかりません') };
+  }
+
+  const space = { id: spaceDoc.id, ...spaceDoc.data() } as Space;
+
+  // スペースに含まれる対話を取得（上限あり: サーバーメモリ保護）
+  const conversations: Conversation[] = [];
+  const targetIds = space.conversationIds.slice(0, MAX_CONVERSATIONS_PER_SPACE);
+  if (targetIds.length > 0) {
+    const refs = targetIds.map((id) => db.collection('conversations').doc(id));
+    const docs = await db.getAll(...refs);
+    for (const doc of docs) {
+      if (doc.exists) {
+        const conv = { id: doc.id, ...doc.data() } as Conversation;
+        if (Array.isArray(conv.messages)) {
+          conversations.push(conv);
+        }
+      }
+    }
+  }
+
+  return {
+    context: {
+      conversationSummary: buildSpaceConversationSummary(conversations),
+      title: space.title,
+      note: space.note,
+    },
+  };
+}
+
+/**
  * ストリーミングチャットエンドポイント
  *
- * @param request - POSTリクエスト（conversationId, userMessage, chatHistory）
+ * @param request - POSTリクエスト（conversationId/spaceId, userMessage, chatHistory）
  * @returns ストリーミングレスポンス（text/event-stream）
  */
 export async function POST(
@@ -85,42 +223,23 @@ export async function POST(
       );
     }
 
-    const { conversationId, userMessage, chatHistory } = parseResult.data;
+    const { conversationId, spaceId, userMessage, chatHistory } = parseResult.data;
 
-    // conversationIdのフォーマット検証（Firestore予約パターン等を排除）
-    if (!isValidDocumentId(conversationId)) {
-      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    // Zodのrefineで排他チェック済みだが、TypeScriptの型ナロイング用に明示的ガード
+    if (!conversationId && !spaceId) {
+      return createClientErrorResponse(400, 'VALIDATION_ERROR', 'conversationIdまたはspaceIdが必要です');
     }
 
-    // 対話データを取得
-    const db = getDb();
-    const docRef = db.collection('conversations').doc(conversationId);
-    const doc = await docRef.get();
+    // コンテキストを構築（対話 or スペース）
+    const result = conversationId
+      ? await buildConversationContext(conversationId)
+      : await buildSpaceContext(spaceId as string);
 
-    if (!doc.exists) {
-      return createClientErrorResponse(404, 'NOT_FOUND', '指定された対話が見つかりません');
+    if ('error' in result) {
+      return result.error;
     }
 
-    // NOTE: Firestoreのデータは保存時にZodで検証済みのため、型アサーションを使用
-    const conversation: Conversation = {
-      id: doc.id,
-      ...doc.data(),
-    } as Conversation;
-
-    // messagesの存在チェック（データ破損への防御）
-    if (!Array.isArray(conversation.messages)) {
-      return createServerErrorResponse(
-        new Error('conversation.messages is not an array'),
-        'POST /api/chat (data integrity)'
-      );
-    }
-
-    // 思考再開コンテキストを構築
-    const context: ThinkResumeContext = {
-      conversationSummary: buildConversationSummary(conversation),
-      title: conversation.title,
-      note: conversation.note,
-    };
+    const { context } = result;
 
     // チャット履歴を変換
     const messages: GeminiMessage[] = chatHistory.map((msg) => ({
