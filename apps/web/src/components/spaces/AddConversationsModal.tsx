@@ -7,7 +7,7 @@
  */
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Conversation } from '@zenn-hackathon04/shared';
 import { X, Loader2, Search, MessageSquare, Check } from 'lucide-react';
 import { SourceBadge } from '@/components/conversations/SourceBadge';
@@ -51,11 +51,8 @@ export function AddConversationsModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  /** 既に追加済みのIDセット（検索高速化） */
-  const currentIdsSet = useRef(new Set(currentConversationIds));
-  useEffect(() => {
-    currentIdsSet.current = new Set(currentConversationIds);
-  }, [currentConversationIds]);
+  /** 既に追加済みのIDセット（O(1)検索用） */
+  const currentIdsSet = useMemo(() => new Set(currentConversationIds), [currentConversationIds]);
 
   /** 対話一覧を取得する */
   const fetchAllConversations = useCallback(async () => {
@@ -126,12 +123,15 @@ export function AddConversationsModal({
     };
   }, [isOpen, isSubmitting, onClose, fetchAllConversations]);
 
-  /** 検索フィルタ適用済みの対話一覧 */
-  const filteredConversations = conversations.filter((c) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return c.title.toLowerCase().includes(query);
-  });
+  /** 検索フィルタ適用済みの対話一覧（対話数が多い場合のパフォーマンス考慮） */
+  const filteredConversations = useMemo(() =>
+    conversations.filter((c) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return c.title.toLowerCase().includes(query);
+    }),
+    [conversations, searchQuery]
+  );
 
   /** チェックボックスの切り替え */
   const toggleSelection = useCallback((id: string) => {
@@ -268,7 +268,7 @@ export function AddConversationsModal({
           ) : (
             <div className="flex flex-col gap-1.5">
               {filteredConversations.map((conversation) => {
-                const isAlreadyAdded = currentIdsSet.current.has(conversation.id);
+                const isAlreadyAdded = currentIdsSet.has(conversation.id);
                 const isSelected = selectedIds.has(conversation.id);
 
                 return (

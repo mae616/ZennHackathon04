@@ -45,6 +45,13 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
   const [isModalOpen, setIsModalOpen] = useState(false);
   /** 削除処理中の対話ID（削除ボタン無効化用） */
   const [removingId, setRemovingId] = useState<string | null>(null);
+  /** 削除失敗時のエラーメッセージ */
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  /** props の conversationIds が変わった場合にローカル state を同期する（E-01対応） */
+  useEffect(() => {
+    setCurrentIds(conversationIds);
+  }, [conversationIds]);
 
   /** currentIds をプリミティブ化して安定した依存配列に使用 */
   const currentIdsKey = currentIds.join(',');
@@ -144,10 +151,12 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
 
     try {
       await updateConversationIds(newIds);
-    } catch {
-      // ロールバック
+      setRemoveError(null);
+    } catch (err) {
+      // ロールバック + エラー通知（W-01対応）
       setCurrentIds(previousIds);
       fetchConversations();
+      setRemoveError(err instanceof Error ? err.message : '削除に失敗しました');
     } finally {
       setRemovingId(null);
     }
@@ -198,6 +207,30 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
           対話を追加
         </button>
       </div>
+
+      {/* 削除失敗の通知（W-01対応：自動消去あり） */}
+      {removeError && (
+        <div
+          className="flex items-center justify-between rounded-sm px-3 py-2 text-sm"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            color: 'var(--red-primary)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            {removeError}
+          </div>
+          <button
+            type="button"
+            onClick={() => setRemoveError(null)}
+            className="text-xs hover:opacity-70"
+            style={{ color: 'var(--red-primary)' }}
+          >
+            閉じる
+          </button>
+        </div>
+      )}
 
       {/* 部分的取得失敗の通知 */}
       {!hasError && partialFailureCount > 0 && (
