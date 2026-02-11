@@ -54,7 +54,7 @@ export function SpaceDetailContent({ space }: SpaceDetailContentProps) {
       {/* 左カラム: ヘッダー、対話一覧、メモ、洞察 */}
       <div className="flex flex-1 flex-col gap-6">
         <SpaceHeader space={space} />
-        <ConversationsInSpaceSection conversationIds={space.conversationIds} />
+        <ConversationsInSpaceSection spaceId={space.id} conversationIds={space.conversationIds} />
         <NoteSection apiEndpoint={`/api/spaces/${space.id}`} note={space.note} />
         {/* 洞察セクション: スペースと洞察の紐づけは Issue #47 で対応予定 */}
         <InsightSection
