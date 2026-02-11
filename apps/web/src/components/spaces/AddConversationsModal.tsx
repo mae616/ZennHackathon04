@@ -1,8 +1,9 @@
 /**
- * @fileoverview 対話追加モーダル
+ * @fileoverview 対話管理モーダル
  *
  * スペース詳細ページから「+ 対話を追加」ボタンで開くモーダル。
- * 既存の対話一覧を検索・選択し、スペースに一括追加する。
+ * 既存の対話一覧を検索・選択し、スペースへの追加・削除を一括管理する。
+ * 追加済み対話はチェック済みで表示され、チェック解除で削除対象になる。
  * CreateSpaceModal のモーダルパターンを踏襲。
  */
 'use client';
@@ -20,26 +21,27 @@ interface AddConversationsModalProps {
   onClose: () => void;
   /** 既にスペースに追加済みの対話ID配列 */
   currentConversationIds: string[];
-  /** 対話追加時のコールバック（選択されたIDの配列を受け取る） */
-  onAdd: (selectedIds: string[]) => Promise<void>;
+  /** 確定時のコールバック（最終的にスペースに含めるべき対話IDの配列を受け取る） */
+  onConfirm: (finalIds: string[]) => Promise<void>;
 }
 
 /**
- * 対話追加モーダル
+ * 対話管理モーダル
  *
- * GET /api/conversations で全対話を取得し、チェックボックスで複数選択→一括追加する。
- * 既にスペースに含まれる対話はグレーアウトして選択不可にする。
+ * GET /api/conversations で全対話を取得し、チェックボックスで追加・削除を一括管理する。
+ * 追加済み対話はチェック済みで表示され、チェック解除で削除対象となる。
+ * 確定時に最終的な対話IDリストを PATCH API に全置換で渡す。
  *
  * @param isOpen - モーダル表示状態
  * @param onClose - 閉じるコールバック
  * @param currentConversationIds - 追加済み対話ID配列
- * @param onAdd - 追加実行コールバック
+ * @param onConfirm - 確定コールバック（最終IDリストを受け取る）
  */
 export function AddConversationsModal({
   isOpen,
   onClose,
   currentConversationIds,
-  onAdd,
+  onConfirm,
 }: AddConversationsModalProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +89,7 @@ export function AddConversationsModal({
     if (!isOpen) return;
 
     fetchAllConversations();
-    setSelectedIds(new Set());
+    setSelectedIds(new Set(currentConversationIds));
     setSearchQuery('');
 
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
@@ -121,7 +123,7 @@ export function AddConversationsModal({
       clearTimeout(timer);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, isSubmitting, onClose, fetchAllConversations]);
+  }, [isOpen, isSubmitting, onClose, fetchAllConversations, currentConversationIds]);
 
   /** 検索フィルタ適用済みの対話一覧（対話数が多い場合のパフォーマンス考慮） */
   const filteredConversations = useMemo(() =>
@@ -132,6 +134,13 @@ export function AddConversationsModal({
     }),
     [conversations, searchQuery]
   );
+
+  /** 追加済みIDとの差分（追加・削除件数の表示とボタン制御に使用） */
+  const { addedCount, removedCount, hasChanges } = useMemo(() => {
+    const added = [...selectedIds].filter((id) => !currentIdsSet.has(id)).length;
+    const removed = [...currentIdsSet].filter((id) => !selectedIds.has(id)).length;
+    return { addedCount: added, removedCount: removed, hasChanges: added > 0 || removed > 0 };
+  }, [selectedIds, currentIdsSet]);
 
   /** チェックボックスの切り替え */
   const toggleSelection = useCallback((id: string) => {
@@ -146,21 +155,21 @@ export function AddConversationsModal({
     });
   }, []);
 
-  /** 追加を実行する */
+  /** 変更を確定する（追加・削除を一括反映） */
   const handleSubmit = useCallback(async () => {
-    if (selectedIds.size === 0) return;
+    if (!hasChanges) return;
 
     setIsSubmitting(true);
     setError(null);
     try {
-      await onAdd(Array.from(selectedIds));
+      await onConfirm(Array.from(selectedIds));
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '対話の追加に失敗しました');
+      setError(err instanceof Error ? err.message : '対話の更新に失敗しました');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedIds, onAdd, onClose]);
+  }, [selectedIds, hasChanges, onConfirm, onClose]);
 
   if (!isOpen) return null;
 
@@ -270,43 +279,47 @@ export function AddConversationsModal({
               {filteredConversations.map((conversation) => {
                 const isAlreadyAdded = currentIdsSet.has(conversation.id);
                 const isSelected = selectedIds.has(conversation.id);
+                /** 新規追加対象（未追加 → チェック） */
+                const isNewAddition = isSelected && !isAlreadyAdded;
+                /** 削除対象（追加済み → チェック解除） */
+                const isRemoval = !isSelected && isAlreadyAdded;
 
                 return (
                   <button
                     key={conversation.id}
                     type="button"
-                    onClick={() => !isAlreadyAdded && toggleSelection(conversation.id)}
-                    disabled={isAlreadyAdded || isSubmitting}
+                    onClick={() => toggleSelection(conversation.id)}
+                    disabled={isSubmitting}
                     className="flex items-center gap-3 rounded-sm p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
-                      backgroundColor: isSelected
+                      backgroundColor: isNewAddition
                         ? 'rgba(239, 68, 68, 0.06)'
-                        : 'var(--bg-surface)',
-                      border: isSelected
+                        : isRemoval
+                          ? 'rgba(239, 68, 68, 0.04)'
+                          : 'var(--bg-surface)',
+                      border: isNewAddition
                         ? '1px solid var(--red-primary)'
-                        : '1px solid var(--border)',
+                        : isRemoval
+                          ? '1px dashed rgba(239, 68, 68, 0.4)'
+                          : '1px solid var(--border)',
                     }}
                   >
                     {/* チェックボックス */}
                     <div
                       className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm border"
                       style={{
-                        borderColor: isAlreadyAdded
-                          ? 'var(--gray-300)'
-                          : isSelected
-                            ? 'var(--red-primary)'
-                            : 'var(--border)',
-                        backgroundColor: isAlreadyAdded
-                          ? 'var(--gray-100)'
-                          : isSelected
-                            ? 'var(--red-primary)'
-                            : 'transparent',
+                        borderColor: isSelected
+                          ? 'var(--red-primary)'
+                          : 'var(--border)',
+                        backgroundColor: isSelected
+                          ? 'var(--red-primary)'
+                          : 'transparent',
                       }}
                     >
-                      {(isAlreadyAdded || isSelected) && (
+                      {isSelected && (
                         <Check
                           className="h-3 w-3"
-                          style={{ color: isAlreadyAdded ? 'var(--gray-400)' : 'white' }}
+                          style={{ color: 'white' }}
                         />
                       )}
                     </div>
@@ -315,12 +328,18 @@ export function AddConversationsModal({
                     <div className="flex flex-1 flex-col gap-0.5">
                       <span
                         className="text-sm font-medium"
-                        style={{ color: isAlreadyAdded ? 'var(--gray-400)' : 'var(--black-primary)' }}
+                        style={{
+                          color: isRemoval ? 'var(--gray-400)' : 'var(--black-primary)',
+                          textDecoration: isRemoval ? 'line-through' : 'none',
+                        }}
                       >
                         {conversation.title}
                         {isAlreadyAdded && (
-                          <span className="ml-2 text-xs" style={{ color: 'var(--gray-400)' }}>
-                            追加済み
+                          <span
+                            className="ml-2 text-xs"
+                            style={{ color: isRemoval ? 'var(--red-primary)' : 'var(--gray-400)' }}
+                          >
+                            {isRemoval ? '削除予定' : '追加済み'}
                           </span>
                         )}
                       </span>
@@ -347,9 +366,12 @@ export function AddConversationsModal({
           style={{ borderTop: '1px solid var(--border)' }}
         >
           <span className="text-sm" style={{ color: 'var(--gray-500)' }}>
-            {selectedIds.size > 0
-              ? `${selectedIds.size}件選択中`
-              : '対話を選択してください'}
+            {hasChanges
+              ? [
+                  addedCount > 0 && `${addedCount}件追加`,
+                  removedCount > 0 && `${removedCount}件削除`,
+                ].filter(Boolean).join('・')
+              : '変更なし'}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -367,17 +389,23 @@ export function AddConversationsModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || selectedIds.size === 0}
+              disabled={isSubmitting || !hasChanges}
               className="flex items-center gap-2 rounded-sm px-4 py-2 text-sm text-white transition-colors hover:opacity-80 disabled:opacity-50"
               style={{ backgroundColor: 'var(--red-primary)' }}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  追加中...
+                  更新中...
                 </>
+              ) : addedCount > 0 && removedCount > 0 ? (
+                '変更を保存'
+              ) : addedCount > 0 ? (
+                `${addedCount}件を追加`
+              ) : removedCount > 0 ? (
+                `${removedCount}件を削除`
               ) : (
-                `${selectedIds.size}件を追加`
+                '変更なし'
               )}
             </button>
           </div>
