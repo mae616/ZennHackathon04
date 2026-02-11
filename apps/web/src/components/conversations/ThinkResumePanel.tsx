@@ -33,8 +33,10 @@ interface ThinkResumePanelProps {
   greeting: string;
   /** /api/chat に送信するコンテキスト識別用ペイロード（conversationId or spaceId） */
   chatPayload: { conversationId: string } | { spaceId: string };
-  /** 洞察保存時のconversationId（undefinedの場合は保存ボタン非表示） */
+  /** 洞察保存時のconversationId（対話レベルの洞察） */
   insightConversationId?: string;
+  /** 洞察保存時のspaceId（スペースレベルの洞察） */
+  insightSpaceId?: string;
   /** 洞察保存後のコールバック */
   onInsightSaved?: () => void;
 }
@@ -145,10 +147,11 @@ function StreamingIndicator({ content }: { content: string }) {
  *
  * @param greeting - 初回挨拶メッセージ
  * @param chatPayload - /api/chat へのコンテキスト識別ペイロード
- * @param insightConversationId - 洞察保存時のconversationId（undefinedで保存ボタン非表示）
+ * @param insightConversationId - 洞察保存時のconversationId（対話レベル）
+ * @param insightSpaceId - 洞察保存時のspaceId（スペースレベル）
  * @param onInsightSaved - 洞察保存後のコールバック
  */
-export function ThinkResumePanel({ greeting, chatPayload, insightConversationId, onInsightSaved }: ThinkResumePanelProps) {
+export function ThinkResumePanel({ greeting, chatPayload, insightConversationId, insightSpaceId, onInsightSaved }: ThinkResumePanelProps) {
   /** チャット履歴 */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   /** 入力中のメッセージ */
@@ -330,10 +333,12 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
    *
    * @param modelMessageId - 保存対象のmodelメッセージID
    */
+  /** 洞察保存が可能かどうか（conversationId または spaceId のいずれかが指定されている） */
+  const canSaveInsight = !!insightConversationId || !!insightSpaceId;
+
   const handleSaveInsight = useCallback(
     async (modelMessageId: string) => {
-      // スペースモードでは洞察保存不可（Issue #47 で対応予定）
-      if (!insightConversationId) return;
+      if (!canSaveInsight) return;
 
       // 対象メッセージを取得
       const modelMessageIndex = messages.findIndex((m) => m.id === modelMessageId);
@@ -355,11 +360,16 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
       setSavingInsightId(modelMessageId);
 
       try {
+        // 対話レベル or スペースレベルで保存先を分岐
+        const payload = insightConversationId
+          ? { conversationId: insightConversationId }
+          : { spaceId: insightSpaceId };
+
         const response = await fetch('/api/insights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            conversationId: insightConversationId,
+            ...payload,
             question: userMessage.content,
             answer: modelMessage.content,
           }),
@@ -376,7 +386,7 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
         setSavingInsightId(null);
       }
     },
-    [messages, insightConversationId, onInsightSaved]
+    [messages, canSaveInsight, insightConversationId, insightSpaceId, onInsightSaved]
   );
 
   return (
@@ -426,9 +436,9 @@ export function ThinkResumePanel({ greeting, chatPayload, insightConversationId,
         aria-label="Geminiとの対話履歴"
       >
         {messages.map((message) => {
-          // greeting以外のmodelメッセージに保存ボタンを表示（insightConversationIdがある場合のみ）
+          // greeting以外のmodelメッセージに保存ボタンを表示（洞察保存先が指定されている場合のみ）
           const showSaveInsight =
-            !!insightConversationId &&
+            canSaveInsight &&
             message.role === 'model' && message.id !== GREETING_MESSAGE_ID;
 
           return (

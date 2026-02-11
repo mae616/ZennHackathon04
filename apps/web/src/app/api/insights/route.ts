@@ -3,7 +3,8 @@
  *
  * POST /api/insights
  * - Geminiとの対話から得たQ&AペアをFirestoreに保存する
- * - conversationId, question, answer をバリデーション
+ * - conversationId または spaceId のいずれか一方を指定（排他バリデーション）
+ * - 参照先ドキュメントの存在確認後、insightsコレクションに保存する
  * - 成功時はドキュメントIDと作成日時を返す
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -40,7 +41,7 @@ export async function POST(
   }
 
   try {
-    // Zodバリデーション
+    // Zodバリデーション（conversationId / spaceId の排他チェック含む）
     const parseResult = SaveInsightRequestSchema.safeParse(body);
     if (!parseResult.success) {
       const error: ApiError = {
@@ -55,18 +56,31 @@ export async function POST(
 
     const data = parseResult.data;
     const now = new Date().toISOString();
-
-    // 参照先の対話が存在するか確認
     const db = getDb();
-    const conversationDoc = await db.collection('conversations').doc(data.conversationId).get();
-    if (!conversationDoc.exists) {
-      const error: ApiError = {
-        code: 'NOT_FOUND',
-        message: '指定された対話が見つかりません',
-      };
-      return NextResponse.json({ success: false, error } as ApiFailure, {
-        status: 404,
-      });
+
+    // 参照先ドキュメントの存在確認（対話 or スペース）
+    if (data.conversationId) {
+      const conversationDoc = await db.collection('conversations').doc(data.conversationId).get();
+      if (!conversationDoc.exists) {
+        const error: ApiError = {
+          code: 'NOT_FOUND',
+          message: '指定された対話が見つかりません',
+        };
+        return NextResponse.json({ success: false, error } as ApiFailure, {
+          status: 404,
+        });
+      }
+    } else if (data.spaceId) {
+      const spaceDoc = await db.collection('spaces').doc(data.spaceId).get();
+      if (!spaceDoc.exists) {
+        const error: ApiError = {
+          code: 'NOT_FOUND',
+          message: '指定されたスペースが見つかりません',
+        };
+        return NextResponse.json({ success: false, error } as ApiFailure, {
+          status: 404,
+        });
+      }
     }
 
     // Firestoreに保存

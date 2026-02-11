@@ -11,12 +11,17 @@ import { z } from 'zod';
  *
  * Geminiとの思考再開チャットで得られたQ&Aペアを表す。
  * ユーザーの質問と、それに対するGeminiの回答をセットで保存する。
+ *
+ * 対話レベルの洞察は conversationId、スペースレベルの洞察は spaceId で紐づく。
+ * いずれか一方が必須（排他的）。
  */
 export const InsightSchema = z.object({
   /** 洞察の一意識別子 */
   id: z.string().min(1),
-  /** 紐づく対話のID */
-  conversationId: z.string().min(1),
+  /** 紐づく対話のID（対話レベルの洞察の場合） */
+  conversationId: z.string().min(1).optional(),
+  /** 紐づくスペースのID（スペースレベルの洞察の場合） */
+  spaceId: z.string().min(1).optional(),
   /** ユーザーの質問 */
   question: z.string(),
   /** Geminiの回答 */
@@ -25,5 +30,8 @@ export const InsightSchema = z.object({
   createdAt: z.string().datetime(),
   /** 更新日時（ISO 8601形式） */
   updatedAt: z.string().datetime(),
-});
+}).refine(
+  (data) => data.conversationId || data.spaceId,
+  { message: 'conversationId または spaceId のいずれかが必須です' }
+);
 export type Insight = z.infer<typeof InsightSchema>;
