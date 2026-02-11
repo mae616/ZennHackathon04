@@ -3,18 +3,22 @@
  *
  * スペースに含まれる対話をコンパクトなリストで表示する。
  * 各対話はタイトル・ソース・日時を表示し、詳細ページへのリンクを提供する。
+ * 対話の追加（モーダル経由）・削除機能を含む。
  */
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { Conversation } from '@zenn-hackathon04/shared';
-import { MessageSquare, Loader2, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
+import { MessageSquare, Loader2, AlertCircle, RotateCcw, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import { SourceBadge } from '@/components/conversations/SourceBadge';
 import { formatDate } from '@/lib/utils/date';
+import { AddConversationsModal } from '@/components/spaces/AddConversationsModal';
 
 interface ConversationsInSpaceSectionProps {
-  /** スペースに含まれる対話IDの配列 */
+  /** スペースID（PATCH API呼び出しに使用） */
+  spaceId: string;
+  /** スペースに含まれる対話IDの配列（初期値） */
   conversationIds: string[];
 }
 
@@ -22,22 +26,32 @@ interface ConversationsInSpaceSectionProps {
  * スペース内の対話一覧セクション
  *
  * conversationIds から各対話をAPIで取得し、リスト表示する。
+ * 「対話を追加」ボタンでモーダルを開き、対話を検索・選択・追加できる。
+ * 各対話カードの削除ボタンでスペースから対話を除外できる。
+ * 追加・削除は PATCH /api/spaces/:id で conversationIds を全置換する。
  *
- * @param conversationIds - 対話IDの配列
+ * @param spaceId - スペースID
+ * @param conversationIds - 対話IDの配列（初期値）
  */
-export function ConversationsInSpaceSection({ conversationIds }: ConversationsInSpaceSectionProps) {
+export function ConversationsInSpaceSection({ spaceId, conversationIds }: ConversationsInSpaceSectionProps) {
+  /** ローカル管理の対話ID配列（追加/削除を即時反映する） */
+  const [currentIds, setCurrentIds] = useState<string[]>(conversationIds);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   /** 部分的に取得失敗した対話の件数 */
   const [partialFailureCount, setPartialFailureCount] = useState(0);
+  /** モーダルの表示状態 */
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  /** 削除処理中の対話ID（削除ボタン無効化用） */
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
-  /** conversationIds をプリミティブ化して安定した依存配列に使用 */
-  const conversationIdsKey = conversationIds.join(',');
+  /** currentIds をプリミティブ化して安定した依存配列に使用 */
+  const currentIdsKey = currentIds.join(',');
 
   /** 対話データを取得する */
   const fetchConversations = useCallback(async () => {
-    if (conversationIds.length === 0) {
+    if (currentIds.length === 0) {
       setConversations([]);
       setIsLoading(false);
       setHasError(false);
@@ -54,8 +68,8 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
       // 同時リクエスト数をチャンク化で制限（ブラウザ接続上限 + サーバー負荷対策）
       const CHUNK_SIZE = 5;
       const results: PromiseSettledResult<Conversation | null>[] = [];
-      for (let i = 0; i < conversationIds.length; i += CHUNK_SIZE) {
-        const chunk = conversationIds.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < currentIds.length; i += CHUNK_SIZE) {
+        const chunk = currentIds.slice(i, i + CHUNK_SIZE);
         const chunkResults = await Promise.allSettled(
           chunk.map(async (id) => {
             const response = await fetch(`/api/conversations/${id}`);
@@ -67,7 +81,7 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
         results.push(...chunkResults);
       }
 
-      // 部分的取得失敗の検出（W9対応）
+      // 部分的取得失敗の検出
       const failedCount = results.filter(
         (r) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value === null)
       ).length;
@@ -84,12 +98,60 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationIdsKey でプリミティブ比較（配列参照の不安定化を回避）
-  }, [conversationIdsKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentIdsKey でプリミティブ比較（配列参照の不安定化を回避）
+  }, [currentIdsKey]);
 
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  /**
+   * PATCH APIで conversationIds を更新する
+   *
+   * @param newIds - 新しい対話ID配列（全置換方式）
+   * @throws エラー時は例外をスローする
+   */
+  const updateConversationIds = useCallback(async (newIds: string[]) => {
+    const response = await fetch(`/api/spaces/${spaceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationIds: newIds }),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error?.message ?? '更新に失敗しました');
+    }
+  }, [spaceId]);
+
+  /** モーダルから対話を追加する */
+  const handleAddConversations = useCallback(async (selectedIds: string[]) => {
+    // 重複排除して結合
+    const newIds = [...currentIds, ...selectedIds.filter((id) => !currentIds.includes(id))];
+    await updateConversationIds(newIds);
+    setCurrentIds(newIds);
+  }, [currentIds, updateConversationIds]);
+
+  /** 対話をスペースから削除する */
+  const handleRemoveConversation = useCallback(async (idToRemove: string) => {
+    setRemovingId(idToRemove);
+    const previousIds = currentIds;
+    const newIds = currentIds.filter((id) => id !== idToRemove);
+
+    // Optimistic Update
+    setCurrentIds(newIds);
+    setConversations((prev) => prev.filter((c) => c.id !== idToRemove));
+
+    try {
+      await updateConversationIds(newIds);
+    } catch {
+      // ロールバック
+      setCurrentIds(previousIds);
+      fetchConversations();
+    } finally {
+      setRemovingId(null);
+    }
+  }, [currentIds, updateConversationIds, fetchConversations]);
 
   return (
     <section
@@ -112,17 +174,29 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
           >
             含まれる対話
           </h2>
+          <span
+            className="rounded-sm px-2 py-0.5 text-xs"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--gray-700)',
+            }}
+          >
+            {isLoading ? '...' : `${conversations.length}件`}
+          </span>
         </div>
-        <span
-          className="rounded-sm px-2 py-1 text-xs"
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors hover:opacity-80"
           style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            color: 'var(--gray-700)',
+            backgroundColor: 'var(--red-primary)',
+            color: 'white',
           }}
         >
-          {isLoading ? '...' : `${conversations.length}件`}
-        </span>
+          <Plus className="h-3.5 w-3.5" />
+          対話を追加
+        </button>
       </div>
 
       {/* 部分的取得失敗の通知 */}
@@ -135,7 +209,7 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
           }}
         >
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-          {conversationIds.length}件中{partialFailureCount}件の対話の取得に失敗しました
+          {currentIds.length}件中{partialFailureCount}件の対話の取得に失敗しました
         </div>
       )}
 
@@ -191,41 +265,71 @@ export function ConversationsInSpaceSection({ conversationIds }: ConversationsIn
       ) : (
         <div className="flex flex-col gap-2">
           {conversations.map((conversation) => (
-            <Link
+            <div
               key={conversation.id}
-              href={`/conversations/${conversation.id}`}
-              className="group flex items-center justify-between rounded-sm p-3 transition-colors hover:opacity-80"
+              className="group flex items-center gap-2 rounded-sm transition-colors"
               style={{
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border)',
               }}
             >
-              <div className="flex flex-1 items-center gap-3">
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: 'var(--black-primary)' }}
-                  >
-                    {conversation.title}
-                  </span>
-                  <time
-                    className="text-xs"
-                    style={{ color: 'var(--gray-500)' }}
-                    dateTime={conversation.updatedAt}
-                  >
-                    {formatDate(conversation.updatedAt)}
-                  </time>
+              {/* 対話カード（リンク） */}
+              <Link
+                href={`/conversations/${conversation.id}`}
+                className="flex flex-1 items-center justify-between p-3 transition-colors hover:opacity-80"
+              >
+                <div className="flex flex-1 items-center gap-3">
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: 'var(--black-primary)' }}
+                    >
+                      {conversation.title}
+                    </span>
+                    <time
+                      className="text-xs"
+                      style={{ color: 'var(--gray-500)' }}
+                      dateTime={conversation.updatedAt}
+                    >
+                      {formatDate(conversation.updatedAt)}
+                    </time>
+                  </div>
+                  <SourceBadge source={conversation.source} />
                 </div>
-                <SourceBadge source={conversation.source} />
-              </div>
-              <ExternalLink
-                className="ml-2 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+                <ExternalLink
+                  className="ml-2 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+                  style={{ color: 'var(--gray-500)' }}
+                />
+              </Link>
+
+              {/* 削除ボタン */}
+              <button
+                type="button"
+                onClick={() => handleRemoveConversation(conversation.id)}
+                disabled={removingId === conversation.id}
+                className="mr-2 flex-shrink-0 rounded-sm p-1.5 opacity-0 transition-all hover:opacity-80 group-hover:opacity-100 disabled:opacity-50"
                 style={{ color: 'var(--gray-500)' }}
-              />
-            </Link>
+                aria-label={`${conversation.title} をスペースから削除`}
+                title="スペースから削除"
+              >
+                {removingId === conversation.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
           ))}
         </div>
       )}
+
+      {/* 対話追加モーダル */}
+      <AddConversationsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentConversationIds={currentIds}
+        onAdd={handleAddConversations}
+      />
     </section>
   );
 }
