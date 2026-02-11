@@ -46,3 +46,27 @@ export function generateGreetingMessage(context: ThinkResumeContext): string {
     'お気軽にお聞きください。'
   );
 }
+
+/**
+ * スペース用の初回挨拶メッセージを生成する
+ *
+ * 複数の対話を統合したコンテキストでの思考再開セッション開始時に使用。
+ *
+ * @param spaceTitle - スペースのタイトル
+ * @param conversationCount - 含まれる対話の数
+ * @returns 初回挨拶メッセージ
+ */
+export function generateSpaceGreetingMessage(
+  spaceTitle: string,
+  conversationCount: number
+): string {
+  return (
+    `スペース「${spaceTitle}」の内容を確認しました。` +
+    `${conversationCount}件の対話を統合したコンテキストで、思考を継続できます。\n\n` +
+    '例えば:\n' +
+    '- 複数の対話を横断した共通テーマを整理する\n' +
+    '- 特定の対話間の関連性を探る\n' +
+    '- 統合的な視点から新しい洞察を導く\n\n' +
+    'お気軽にお聞きください。'
+  );
+}
