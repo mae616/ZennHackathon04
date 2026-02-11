@@ -31,7 +31,7 @@ export const InsightSchema = z.object({
   /** 更新日時（ISO 8601形式） */
   updatedAt: z.string().datetime(),
 }).refine(
-  (data) => (data.conversationId && !data.spaceId) || (!data.conversationId && data.spaceId),
+  (data) => (data.conversationId !== undefined && data.spaceId === undefined) || (data.conversationId === undefined && data.spaceId !== undefined),
   { message: 'conversationId または spaceId のいずれか一方を指定してください' }
 );
 export type Insight = z.infer<typeof InsightSchema>;

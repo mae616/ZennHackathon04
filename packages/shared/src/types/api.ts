@@ -120,7 +120,7 @@ export const SaveInsightRequestSchema = z.object({
   /** Geminiの回答 */
   answer: z.string().min(1).max(10000),
 }).refine(
-  (data) => (data.conversationId && !data.spaceId) || (!data.conversationId && data.spaceId),
+  (data) => (data.conversationId !== undefined && data.spaceId === undefined) || (data.conversationId === undefined && data.spaceId !== undefined),
   { message: 'conversationId または spaceId のいずれか一方を指定してください' }
 );
 export type SaveInsightRequest = z.infer<typeof SaveInsightRequestSchema>;

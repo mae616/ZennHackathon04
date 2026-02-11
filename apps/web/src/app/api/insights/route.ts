@@ -15,7 +15,8 @@ import {
   type ApiFailure,
 } from '@zenn-hackathon04/shared';
 import { getDb } from '@/lib/firebase/admin';
-import { createServerErrorResponse } from '@/lib/api/errors';
+import { createClientErrorResponse, createServerErrorResponse } from '@/lib/api/errors';
+import { isValidDocumentId } from '@/lib/api/validation';
 
 /**
  * 洞察を保存する
@@ -57,6 +58,12 @@ export async function POST(
     const data = parseResult.data;
     const now = new Date().toISOString();
     const db = getDb();
+
+    // IDフォーマット検証（Firestoreの予約語やスラッシュを含むIDを弾く）
+    const targetId = data.conversationId ?? data.spaceId;
+    if (!targetId || !isValidDocumentId(targetId)) {
+      return createClientErrorResponse(400, 'INVALID_ID_FORMAT', 'IDのフォーマットが不正です');
+    }
 
     // 参照先ドキュメントの存在確認（対話 or スペース）
     if (data.conversationId) {
