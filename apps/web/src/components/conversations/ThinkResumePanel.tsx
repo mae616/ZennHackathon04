@@ -93,13 +93,16 @@ function ChatBubble({
           type="button"
           onClick={onSaveInsight}
           disabled={isSaved || isSaving}
-          className="mt-1 flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:opacity-70 disabled:cursor-default disabled:opacity-100"
+          className="mt-1 flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors hover:opacity-70 disabled:cursor-default disabled:opacity-100"
           style={{
             color: isFailed
               ? 'var(--red-primary)'
               : isSaved
                 ? 'var(--gray-500)'
                 : 'var(--red-primary)',
+            border: isSaved
+              ? '1px solid var(--gray-300)'
+              : '1px solid var(--red-primary)',
           }}
         >
           {isSaving ? (
