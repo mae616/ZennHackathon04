@@ -29,26 +29,43 @@ LLMとの対話は「使い捨て」になりがちです。
 | **メモ・追記** | 保存した対話にメモを追記し、思考のコンテキストを補強 |
 | **タグ・検索** | タグとキーワードで保存した対話を整理・検索 |
 
+### 現在の対応状況
+
+| プラットフォーム | 対話キャプチャ（Chrome拡張） | 思考再開（Web） |
+|-----------------|---------------------------|----------------|
+| **Gemini** | **対応済み** | **対応済み** |
+| ChatGPT | 未対応（計画中） | 保存済みデータの閲覧・思考再開は可能 |
+| Claude | 未対応（計画中） | 保存済みデータの閲覧・思考再開は可能 |
+
+> **Note**: Chrome拡張による対話キャプチャは現在 **Gemini のみ** に対応しています。ChatGPT・Claude の対話は、Gemini 経由で保存した後に Web 画面から閲覧・思考再開が可能です。
+
 ---
 
 ## スクリーンショット
 
-### Web管理画面
+### 対話一覧
 
-| 対話一覧 | 思考再開 |
-|----------|----------|
-| ![対話一覧](doc/images/web-conversations.png) | ![思考再開](doc/images/web-think-resume.png) |
+保存した対話をソース別バッジ（ChatGPT / Claude / Gemini）・タグ・メモ付きで一覧表示。キーワード検索・タグフィルタに対応。
 
-| スペース一覧 |
-|-------------|
-| ![スペース一覧](doc/images/web-spaces.png) |
+![対話一覧](doc/images/web-conversations.png)
 
-### Chrome拡張（ポップアップ）
+### 思考再開（対話詳細）
 
-<!-- TODO: 実際のスクリーンショットに差し替え -->
-![拡張機能ポップアップ](doc/images/extension-popup.png)
+保存した対話履歴・メモ・洞察を確認しながら、右パネルの Gemini チャットで思考を再開。重要なやり取りは「洞察として保存」できる。
 
-対話ページで拡張アイコンをクリックすると、AIがタイトル・メモ・タグを自動生成。確認・編集して保存できます。
+![思考再開](doc/images/web-think-resume.png)
+
+### スペース一覧
+
+関連する対話をグループ化した「スペース」を作成・管理。
+
+![スペース一覧](doc/images/web-spaces.png)
+
+### スペース詳細
+
+スペース内の複数対話を統合コンテキストとして Gemini に渡し、横断的に思考を継続。
+
+![スペース詳細](doc/images/web-space-detail.png)
 
 ---
 
@@ -123,8 +140,7 @@ VITE_API_BASE_URL=<デモURL> pnpm --filter @zenn-hackathon04/extension build
 3. タイトル・メモ・タグを確認し、必要に応じて編集
 4. **「保存する」** をクリック → デモ環境に保存され、Web画面で確認できます
 
-> **補足**: 拡張機能のポップアップ（DOM解析・フォーム表示）はバックエンドなしで動作します。
-> 「保存する」ボタンを押す際にのみ Web API への接続が必要です。
+> **補足**: 現時点でChrome拡張の対話キャプチャは **Gemini のみ** に対応しています。ChatGPT・Claude への対応は今後のアップデートで追加予定です。
 
 ---
 
@@ -160,6 +176,14 @@ pnpm --filter @zenn-hackathon04/web exec tsc --noEmit # 型チェック（Web）
 pnpm --filter @zenn-hackathon04/shared lint           # 型チェック（shared）
 ```
 
+### デモデータの投入
+
+スクリーンショット・デモ向けのテストデータを投入できます（既存データは削除されます）：
+
+```bash
+NODE_PATH=apps/web/node_modules npx tsx scripts/seed-demo-data.ts
+```
+
 ---
 
 ## プロジェクト構成
@@ -173,6 +197,8 @@ ZennHackathon04/
 │       └── entrypoints/  # content.ts, background.ts, popup/
 ├── packages/
 │   └── shared/           # 共通型定義（Zod スキーマ）
+├── scripts/
+│   └── seed-demo-data.ts # デモデータ投入スクリプト
 └── doc/                  # ドキュメント・デザイン
 ```
 
