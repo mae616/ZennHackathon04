@@ -131,13 +131,11 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
     }
   }, [spaceId]);
 
-  /** モーダルから対話を追加する */
-  const handleAddConversations = useCallback(async (selectedIds: string[]) => {
-    // 重複排除して結合
-    const newIds = [...currentIds, ...selectedIds.filter((id) => !currentIds.includes(id))];
-    await updateConversationIds(newIds);
-    setCurrentIds(newIds);
-  }, [currentIds, updateConversationIds]);
+  /** モーダルから対話の追加・削除を一括反映する */
+  const handleConfirmConversations = useCallback(async (finalIds: string[]) => {
+    await updateConversationIds(finalIds);
+    setCurrentIds(finalIds);
+  }, [updateConversationIds]);
 
   /** 対話をスペースから削除する */
   const handleRemoveConversation = useCallback(async (idToRemove: string) => {
@@ -361,7 +359,7 @@ export function ConversationsInSpaceSection({ spaceId, conversationIds }: Conver
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         currentConversationIds={currentIds}
-        onAdd={handleAddConversations}
+        onConfirm={handleConfirmConversations}
       />
     </section>
   );
